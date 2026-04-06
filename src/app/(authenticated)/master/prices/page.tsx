@@ -52,9 +52,10 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
 
   // Handler untuk perhitungan otomatis satu arah
   // Price per Unit = Price per Kg × Product Unit Weight (auto-calculated, read-only)
+  // Dibulatkan ke 2 desimal
   const handlePricePerKgChange = (value: number) => {
     if (selectedProduct) {
-      const pricePerUnit = value * selectedProduct.baseUnitWeight
+      const pricePerUnit = Math.round(value * selectedProduct.baseUnitWeight * 100) / 100
       setFormData(prev => ({ 
         ...prev, 
         specialPricePerKg: value,
