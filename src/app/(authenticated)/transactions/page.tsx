@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
+import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { NumberInput } from '@/components/ui/number-input'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS, FULFILLMENT_STATUS_LABELS, FULFILLMENT_STATUS_COLORS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import { useSalesNames, usePaymentMethods, useTaxRate, useProductCategories } from '@/hooks/use-settings'
@@ -289,6 +290,10 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
       
       if (customerPrice) {
         // Use special price from Customer Prices
+        // Calculate discount amount from discount percent
+        const discountAmountPerUnit = customerPrice.specialPricePerUnit * customerPrice.discountPercent / 100
+        const totalDiscount = currentQty * discountAmountPerUnit
+        
         newItems[index] = {
           ...newItems[index],
           productId: product.id,
@@ -301,6 +306,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           unitName: product.unitName,
           kgName: product.kgName,
           discountPercent: customerPrice.discountPercent,
+          discount: totalDiscount,
           hasSpecialPrice: true,
           originalPrice: product.basePricePerUnit,
         }
@@ -318,6 +324,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           unitName: product.unitName,
           kgName: product.kgName,
           discountPercent: 0,
+          discount: 0,
           hasSpecialPrice: false,
           originalPrice: product.basePricePerUnit,
         }
@@ -338,11 +345,16 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         const customerPrice = findCustomerPrice(item.productId)
         
         if (customerPrice) {
+          // Calculate discount amount from discount percent
+          const discountAmountPerUnit = customerPrice.specialPricePerUnit * customerPrice.discountPercent / 100
+          const totalDiscount = item.quantity * discountAmountPerUnit
+          
           return {
             ...item,
             unitPrice: customerPrice.specialPricePerUnit,
             pricePerKg: customerPrice.specialPricePerKg,
             discountPercent: customerPrice.discountPercent,
+            discount: totalDiscount,
             hasSpecialPrice: true,
             originalPrice: product.basePricePerUnit,
           }
@@ -352,6 +364,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
             unitPrice: product.basePricePerUnit,
             pricePerKg: product.basePricePerKg,
             discountPercent: 0,
+            discount: 0,
             hasSpecialPrice: false,
             originalPrice: product.basePricePerUnit,
           }
@@ -363,13 +376,29 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
   }, [formData.customerId])
 
   // Auto-calculate qtyKg when quantity or unitWeight changes
+  // Also recalculate discount for special price items
   React.useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      items: prev.items.map(item => ({
-        ...item,
-        qtyKg: item.quantity * item.unitWeight
-      }))
+      items: prev.items.map(item => {
+        const newQtyKg = item.quantity * item.unitWeight
+        
+        // Recalculate discount if has special price
+        if (item.hasSpecialPrice && item.discountPercent > 0) {
+          const discountAmountPerUnit = item.unitPrice * item.discountPercent / 100
+          const totalDiscount = item.quantity * discountAmountPerUnit
+          return {
+            ...item,
+            qtyKg: newQtyKg,
+            discount: totalDiscount
+          }
+        }
+        
+        return {
+          ...item,
+          qtyKg: newQtyKg
+        }
+      })
     }))
   }, [formData.items.map(i => i.quantity).join(','), formData.items.map(i => i.unitWeight).join(',')])
 
@@ -571,10 +600,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Qty *</label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={item.quantity}
-                    onChange={(e) => updateItem(index, 'quantity', parseNumberInput(e.target.value))}
+                    onChange={(value) => updateItem(index, 'quantity', value)}
                     min={1}
                     required
                   />
@@ -583,11 +611,10 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                   <label className="text-xs text-muted-foreground mb-1 block">
                     Diskon % {item.hasSpecialPrice && <span className="text-green-600">(Auto)</span>}
                   </label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={item.discountPercent}
-                    onChange={(e) => {
-                      const newDiscountPercent = parseNumberInput(e.target.value)
+                    allowDecimal
+                    onChange={(newDiscountPercent) => {
                       const newItems = [...formData.items]
                       const discountAmount = newItems[index].unitPrice * newDiscountPercent / 100
                       newItems[index] = { 
@@ -605,11 +632,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Diskon (Rp)</label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={item.discount}
-                    onChange={(e) => {
-                      const newDiscount = parseNumberInput(e.target.value)
+                    onChange={(newDiscount) => {
                       const newItems = [...formData.items]
                       const newDiscountPercent = newItems[index].unitPrice > 0 
                         ? (newDiscount / (newItems[index].quantity * newItems[index].unitPrice)) * 100 
@@ -656,11 +681,10 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         </div>
         <div className="flex justify-between text-sm items-center">
           <span>Diskon</span>
-          <Input
-            type="number"
+          <NumberInput
             className="w-32 h-8 text-right"
             value={formData.discount}
-            onChange={(e) => setFormData({ ...formData, discount: parseNumberInput(e.target.value) })}
+            onChange={(value) => setFormData({ ...formData, discount: value })}
             min={0}
           />
         </div>
@@ -687,10 +711,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Jumlah Bayar</label>
-          <Input
-            type="number"
+          <NumberInput
             value={formData.paidAmount}
-            onChange={(e) => setFormData({ ...formData, paidAmount: parseNumberInput(e.target.value) })}
+            onChange={(value) => setFormData({ ...formData, paidAmount: value })}
             min={0}
             max={total}
           />
@@ -769,11 +792,10 @@ function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, lo
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Additional Payment</label>
-        <Input
-          type="number"
+        <NumberInput
           placeholder="Enter amount"
           value={formData.amount}
-          onChange={(e) => setFormData({ ...formData, amount: parseNumberInput(e.target.value) })}
+          onChange={(value) => setFormData({ ...formData, amount: value })}
           min={0}
           max={transaction.remainingAmount}
           required
