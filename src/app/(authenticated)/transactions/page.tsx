@@ -158,6 +158,8 @@ interface TransactionItemFormData {
   productCode: string
   productName: string
   quantity: number
+  unitWeight: number
+  qtyKg: number
   unitPrice: number
   pricePerKg: number
   unitName: string
@@ -204,6 +206,8 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
           productCode: i.productCode,
           productName: i.productName,
           quantity: i.qtyOrderUnit,
+          unitWeight: i.unitWeight,
+          qtyKg: i.qtyOrderKg,
           unitPrice: i.pricePerUnit,
           pricePerKg: i.pricePerKg,
           unitName: i.unitName,
@@ -264,11 +268,14 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
   const handleProductSelect = (index: number, value: string, product?: Product) => {
     if (product) {
       const newItems = [...formData.items]
+      const currentQty = newItems[index]?.quantity || 1
       newItems[index] = {
         ...newItems[index],
         productId: product.id,
         productCode: product.productCode,
         productName: product.productName,
+        unitWeight: product.baseUnitWeight,
+        qtyKg: currentQty * product.baseUnitWeight,
         unitPrice: product.basePricePerUnit,
         pricePerKg: product.basePricePerKg,
         unitName: product.unitName,
@@ -277,6 +284,17 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
       setFormData(prev => ({ ...prev, items: newItems }))
     }
   }
+
+  // Auto-calculate qtyKg when quantity or unitWeight changes
+  React.useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map(item => ({
+        ...item,
+        qtyKg: item.quantity * item.unitWeight
+      }))
+    }))
+  }, [formData.items.map(i => i.quantity).join(','), formData.items.map(i => i.unitWeight).join(',')])
 
   // Add new item
   const addItem = () => {
@@ -287,6 +305,8 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
         productCode: '',
         productName: '',
         quantity: 1,
+        unitWeight: 0,
+        qtyKg: 0,
         unitPrice: 0,
         pricePerKg: 0,
         unitName: '',
@@ -427,10 +447,14 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
 
               {/* Auto-filled Product Details */}
               {item.productId && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
                   <div className="bg-muted/30 p-2 rounded">
                     <span className="text-muted-foreground block">Kode</span>
                     <span className="font-medium">{item.productCode}</span>
+                  </div>
+                  <div className="bg-muted/30 p-2 rounded">
+                    <span className="text-muted-foreground block">Berat/Unit</span>
+                    <span className="font-medium">{item.unitWeight} {item.kgName}</span>
                   </div>
                   <div className="bg-muted/30 p-2 rounded">
                     <span className="text-muted-foreground block">Harga/Unit</span>
@@ -441,8 +465,8 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
                     <span className="font-medium">{formatCurrency(item.pricePerKg)}</span>
                   </div>
                   <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Satuan</span>
-                    <span className="font-medium">{item.unitName} / {item.kgName}</span>
+                    <span className="text-muted-foreground block">Total Berat</span>
+                    <span className="font-medium">{item.qtyKg.toFixed(2)} {item.kgName}</span>
                   </div>
                 </div>
               )}

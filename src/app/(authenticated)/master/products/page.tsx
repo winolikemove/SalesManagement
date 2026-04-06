@@ -59,6 +59,14 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
     description: product?.description || '',
   })
 
+  // Auto-calculate basePricePerUnit from baseUnitWeight × basePricePerKg
+  React.useEffect(() => {
+    const pricePerUnit = formData.baseUnitWeight * formData.basePricePerKg
+    if (pricePerUnit !== formData.basePricePerUnit) {
+      setFormData(prev => ({ ...prev, basePricePerUnit: pricePerUnit }))
+    }
+  }, [formData.baseUnitWeight, formData.basePricePerKg])
+
   // Auto-calculate kg stock from unit weight and unit qty
   React.useEffect(() => {
     const kgStock = formData.stockQtyUnit * formData.baseUnitWeight
@@ -181,13 +189,15 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Base Price per Unit (Rp) *</label>
+            <label className="text-sm font-medium">Base Price per Unit (Rp)</label>
             <NumberInput
               value={formData.basePricePerUnit}
-              onChange={(value) => setFormData({ ...formData, basePricePerUnit: value })}
-              placeholder="Price per unit"
-              required
+              onChange={() => {}}
+              className="bg-muted"
+              disabled
+              placeholder="Auto-calculated"
             />
+            <p className="text-xs text-muted-foreground">Auto-calculated: Unit Weight × Price/Kg</p>
           </div>
         </div>
         <div className="flex items-center space-x-2 mt-4">
