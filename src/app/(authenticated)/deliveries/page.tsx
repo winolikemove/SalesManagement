@@ -10,64 +10,225 @@ import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, LoadingScreen } from '@/components/shared'
 import { formatDateTime, formatDate, formatCurrency } from '@/lib/utils'
-import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS } from '@/lib/constants'
+import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, FULFILLMENT_STATUS_LABELS, FULFILLMENT_STATUS_COLORS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import { api } from '@/lib/api'
-import type { Delivery, Transaction, Driver, Vehicle, ApiResponse } from '@/types'
+import type { Delivery, Transaction, Driver, Vehicle, ApiResponse, Customer, TransactionItem, DeliveryItem } from '@/types'
 
 // ============ Delivery Form Component ============
-interface DeliveryFormData {
-  transactionId: string
-  driverId: string
-  vehicleId: string
-  deliveryAddress: string
-  deliveryDate: string
-  notes: string
+interface DeliveryItemFormData {
+  transactionItemId: string
+  productId: string
+  productCode: string
+  productName: string
+  qtyOrdered: number
+  qtyFulfilled: number
+  qtyRemaining: number
+  qtyToDeliver: number
+  unitWeight: number
+  unitName: string
+  kgName: string
 }
 
-function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onCancel, loading }: {
+interface DeliveryFormData {
+  transactionId: string
+  invoiceNumber: string
+  customerId: string
+  customerCode: string
+  customerName: string
+  customerAddress: string
+  customerPhone: string
+  googleMapsUrl: string
+  driverId: string
+  driverName: string
+  driverPhone: string
+  vehicleId: string
+  vehiclePlate: string
+  vehicleType: string
+  deliveryDate: string
+  deliveryTime: string
+  receiverName: string
+  deliveryStatus: 'PENDING' | 'ON_DELIVERY' | 'DELIVERED' | 'FAILED'
+  totalItems: number
+  totalWeight: number
+  notes: string
+  items: DeliveryItemFormData[]
+}
+
+function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, onSubmit, onCancel, loading }: {
   delivery?: Delivery
   drivers: Driver[]
   vehicles: Vehicle[]
   transactions: Transaction[]
+  customers?: Customer[]
   onSubmit: (data: DeliveryFormData) => void
   onCancel: () => void
   loading?: boolean
 }) {
-  const [formData, setFormData] = React.useState<DeliveryFormData>({
-    transactionId: delivery?.transactionId || '',
-    driverId: delivery?.driverId || '',
-    vehicleId: delivery?.vehicleId || '',
-    deliveryAddress: delivery?.customerAddress || '',
-    deliveryDate: delivery?.deliveryDate || new Date().toISOString().split('T')[0],
-    notes: delivery?.notes || '',
-  })
+  // Initialize form data
+  const getInitialFormData = (): DeliveryFormData => {
+    if (delivery) {
+      return {
+        transactionId: delivery.transactionId || '',
+        invoiceNumber: delivery.invoiceNumber || '',
+        customerId: delivery.customerId || '',
+        customerCode: delivery.customerCode || '',
+        customerName: delivery.customerName || '',
+        customerAddress: delivery.customerAddress || '',
+        customerPhone: delivery.customerPhone || '',
+        googleMapsUrl: delivery.googleMapsUrl || '',
+        driverId: delivery.driverId || '',
+        driverName: delivery.driverName || '',
+        driverPhone: delivery.driverPhone || '',
+        vehicleId: delivery.vehicleId || '',
+        vehiclePlate: delivery.vehiclePlate || '',
+        vehicleType: delivery.vehicleType || '',
+        deliveryDate: delivery.deliveryDate || new Date().toISOString().split('T')[0],
+        deliveryTime: delivery.deliveryTime || '',
+        receiverName: delivery.receiverName || '',
+        deliveryStatus: delivery.deliveryStatus || 'PENDING',
+        totalItems: delivery.totalItems || 0,
+        totalWeight: delivery.totalWeight || 0,
+        notes: delivery.notes || '',
+        items: delivery.items?.map(item => ({
+          transactionItemId: item.transactionItemId || '',
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
+          qtyOrdered: item.qtyDeliveredUnit,
+          qtyFulfilled: item.qtyDeliveredUnit,
+          qtyRemaining: 0,
+          qtyToDeliver: item.qtyDeliveredUnit,
+          unitWeight: item.qtyDeliveredKg / (item.qtyDeliveredUnit || 1),
+          unitName: item.unitName,
+          kgName: item.kgName,
+        })) || [],
+      }
+    }
+    return {
+      transactionId: '',
+      invoiceNumber: '',
+      customerId: '',
+      customerCode: '',
+      customerName: '',
+      customerAddress: '',
+      customerPhone: '',
+      googleMapsUrl: '',
+      driverId: '',
+      driverName: '',
+      driverPhone: '',
+      vehicleId: '',
+      vehiclePlate: '',
+      vehicleType: '',
+      deliveryDate: new Date().toISOString().split('T')[0],
+      deliveryTime: '',
+      receiverName: '',
+      deliveryStatus: 'PENDING',
+      totalItems: 0,
+      totalWeight: 0,
+      notes: '',
+      items: [],
+    }
+  }
 
-  // Update delivery address when transaction changes
+  const [formData, setFormData] = React.useState<DeliveryFormData>(getInitialFormData)
+
+  // Get selected transaction
   const selectedTransaction = transactions.find(t => t.id === formData.transactionId)
+
+  // Get customer data for Google Maps URL
+  const selectedCustomer = customers?.find(c => c.id === formData.customerId)
+
+  // Update form data when transaction changes
   React.useEffect(() => {
     if (selectedTransaction && !delivery) {
+      const customer = customers?.find(c => c.id === selectedTransaction.customerId)
+      
+      // Get items from transaction that have remaining quantity to deliver
+      const items: DeliveryItemFormData[] = selectedTransaction.items?.map(item => ({
+        transactionItemId: item.id,
+        productId: item.productId,
+        productCode: item.productCode,
+        productName: item.productName,
+        qtyOrdered: item.qtyOrderUnit,
+        qtyFulfilled: item.qtyFulfilledUnit || 0,
+        qtyRemaining: item.qtyOrderUnit - (item.qtyFulfilledUnit || 0),
+        qtyToDeliver: item.qtyOrderUnit - (item.qtyFulfilledUnit || 0), // Default to all remaining
+        unitWeight: item.unitWeight,
+        unitName: item.unitName,
+        kgName: item.kgName,
+      })).filter(item => item.qtyRemaining > 0) || []
+
       setFormData(prev => ({
         ...prev,
-        deliveryAddress: selectedTransaction.customerAddress || ''
+        invoiceNumber: selectedTransaction.invoiceNumber || '',
+        customerId: selectedTransaction.customerId || '',
+        customerCode: selectedTransaction.customerCode || '',
+        customerName: selectedTransaction.customerName || '',
+        customerAddress: selectedTransaction.customerAddress || '',
+        customerPhone: selectedTransaction.customerPhone || '',
+        googleMapsUrl: customer?.googleMapsUrl || '',
+        items,
       }))
     }
-  }, [selectedTransaction, delivery])
+  }, [selectedTransaction, delivery, customers])
+
+  // Update driver info when driver selection changes
+  const selectedDriver = drivers.find(d => d.id === formData.driverId)
+  React.useEffect(() => {
+    if (selectedDriver) {
+      setFormData(prev => ({
+        ...prev,
+        driverName: selectedDriver.driverName,
+        driverPhone: selectedDriver.phone,
+      }))
+    }
+  }, [selectedDriver])
+
+  // Update vehicle info when vehicle selection changes
+  const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId)
+  React.useEffect(() => {
+    if (selectedVehicle) {
+      setFormData(prev => ({
+        ...prev,
+        vehiclePlate: selectedVehicle.vehiclePlate,
+        vehicleType: selectedVehicle.vehicleType,
+      }))
+    }
+  }, [selectedVehicle])
+
+  // Calculate totals when items change
+  React.useEffect(() => {
+    const totalItems = formData.items.reduce((sum, item) => sum + (item.qtyToDeliver > 0 ? 1 : 0), 0)
+    const totalWeight = formData.items.reduce((sum, item) => sum + (item.qtyToDeliver * item.unitWeight), 0)
+    setFormData(prev => ({ ...prev, totalItems, totalWeight }))
+  }, [formData.items.map(i => i.qtyToDeliver).join(',')])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(formData)
   }
 
+  // Update item qty to deliver
+  const updateItemQty = (index: number, qty: number) => {
+    const newItems = [...formData.items]
+    newItems[index] = {
+      ...newItems[index],
+      qtyToDeliver: Math.min(qty, newItems[index].qtyRemaining),
+    }
+    setFormData(prev => ({ ...prev, items: newItems }))
+  }
+
   // Filter transactions that are pending or processing for delivery
   const availableTransactions = transactions.filter(t => 
-    t.deliveryStatus === 'PENDING' || t.deliveryStatus === 'PROCESSING'
+    t.deliveryStatus === 'PENDING' || t.deliveryStatus === 'PROCESSING' || t.deliveryStatus === 'PARTIAL'
   )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Transaction Selection */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Transaction *</label>
+        <label className="text-sm font-medium">Transaksi *</label>
         <select
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.transactionId}
@@ -75,20 +236,51 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
           required
           disabled={!!delivery}
         >
-          <option value="">Select Transaction</option>
+          <option value="">Pilih Transaksi</option>
           {availableTransactions.map((tx) => (
             <option key={tx.id} value={tx.id}>
-              {tx.invoiceNumber} - {tx.customerName}
+              {tx.invoiceNumber} - {tx.customerName} ({formatCurrency(tx.grandTotal)})
             </option>
           ))}
         </select>
-        {selectedTransaction && (
-          <p className="text-xs text-muted-foreground">
-            Customer: {selectedTransaction.customerName} | Total: {formatCurrency(selectedTransaction.grandTotal)}
-          </p>
-        )}
       </div>
 
+      {/* Customer Info (Auto-filled) */}
+      {formData.customerId && (
+        <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Customer:</span>
+              <span className="ml-2 font-medium">{formData.customerName}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Kode:</span>
+              <span className="ml-2">{formData.customerCode}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Telepon:</span>
+              <span className="ml-2">{formData.customerPhone || '-'}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Alamat:</span>
+              <span className="ml-2">{formData.customerAddress || '-'}</span>
+            </div>
+          </div>
+          {formData.googleMapsUrl && (
+            <a
+              href={formData.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+            >
+              <MapPin className="h-3 w-3" />
+              Lihat di Google Maps
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Driver & Vehicle */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Driver</label>
@@ -97,30 +289,37 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
             value={formData.driverId}
             onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
           >
-            <option value="">Select Driver</option>
+            <option value="">Pilih Driver</option>
             {drivers.filter(d => d.isActive).map((driver) => (
               <option key={driver.id} value={driver.id}>{driver.driverName}</option>
             ))}
           </select>
+          {formData.driverPhone && (
+            <p className="text-xs text-muted-foreground">Telp: {formData.driverPhone}</p>
+          )}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Vehicle</label>
+          <label className="text-sm font-medium">Kendaraan</label>
           <select
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.vehicleId}
             onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
           >
-            <option value="">Select Vehicle</option>
+            <option value="">Pilih Kendaraan</option>
             {vehicles.filter(v => v.isActive).map((vehicle) => (
               <option key={vehicle.id} value={vehicle.id}>{vehicle.vehiclePlate} - {vehicle.vehicleType}</option>
             ))}
           </select>
+          {formData.vehicleType && (
+            <p className="text-xs text-muted-foreground">Tipe: {formData.vehicleType}</p>
+          )}
         </div>
       </div>
 
+      {/* Delivery Date & Time */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Delivery Date</label>
+          <label className="text-sm font-medium">Tanggal Kirim</label>
           <input
             type="date"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -129,30 +328,127 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Delivery Address</label>
+          <label className="text-sm font-medium">Waktu Kirim</label>
           <input
-            type="text"
+            type="time"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.deliveryAddress}
-            onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })}
-            placeholder="Delivery address"
+            value={formData.deliveryTime}
+            onChange={(e) => setFormData({ ...formData, deliveryTime: e.target.value })}
           />
         </div>
       </div>
 
+      {/* Delivery Address */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Notes</label>
+        <label className="text-sm font-medium">Alamat Pengiriman</label>
+        <textarea
+          className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.customerAddress}
+          onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
+          placeholder="Alamat pengiriman"
+        />
+      </div>
+
+      {/* Items to Deliver */}
+      {formData.items.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Item yang Dikirim</label>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-3 py-2 text-left">Produk</th>
+                  <th className="px-3 py-2 text-right">Qty Order</th>
+                  <th className="px-3 py-2 text-right">Terkirim</th>
+                  <th className="px-3 py-2 text-right">Sisa</th>
+                  <th className="px-3 py-2 text-right">Kirim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {formData.items.map((item, index) => (
+                  <tr key={item.transactionItemId} className="border-t">
+                    <td className="px-3 py-2">
+                      <p className="font-medium">{item.productName}</p>
+                      <p className="text-xs text-muted-foreground">{item.productCode}</p>
+                    </td>
+                    <td className="px-3 py-2 text-right">{item.qtyOrdered} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right text-green-600">{item.qtyFulfilled} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right text-orange-600">{item.qtyRemaining} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right">
+                      <input
+                        type="number"
+                        className="w-16 h-8 rounded border border-input bg-background px-2 text-right text-sm"
+                        value={item.qtyToDeliver}
+                        onChange={(e) => updateItemQty(index, parseInt(e.target.value) || 0)}
+                        min={0}
+                        max={item.qtyRemaining}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Totals */}
+      <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Item</p>
+          <p className="font-medium">{formData.totalItems} item</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total Berat</p>
+          <p className="font-medium">{formData.totalWeight.toFixed(2)} Kg</p>
+        </div>
+      </div>
+
+      {/* Status & Receiver (for edit mode) */}
+      {delivery && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Status</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.deliveryStatus}
+              onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as DeliveryFormData['deliveryStatus'] })}
+            >
+              <option value="PENDING">Pending</option>
+              <option value="ON_DELIVERY">Dalam Pengiriman</option>
+              <option value="DELIVERED">Terkirim</option>
+              <option value="FAILED">Gagal</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nama Penerima</label>
+            <input
+              type="text"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.receiverName}
+              onChange={(e) => setFormData({ ...formData, receiverName: e.target.value })}
+              placeholder="Nama penerima barang"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Catatan</label>
         <textarea
           className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Catatan pengiriman..."
         />
       </div>
 
+      {/* Actions */}
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Saving...' : delivery ? 'Update' : 'Create'}
+        <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
+        <Button type="submit" disabled={loading || !formData.transactionId}>
+          {loading ? 'Menyimpan...' : delivery ? 'Update' : 'Buat Pengiriman'}
         </Button>
       </div>
     </form>
@@ -455,11 +751,18 @@ export default function DeliveriesPage() {
     queryFn: async () => api.getTransactions({ pageSize: 100 }) as Promise<ApiResponse<Transaction[]>>,
   })
 
+  // Fetch customers for Google Maps URL
+  const { data: customersResponse } = useQuery({
+    queryKey: ['customers-for-delivery'],
+    queryFn: async () => api.getCustomers({ pageSize: 100 }) as Promise<ApiResponse<Customer[]>>,
+  })
+
   // Extract data from responses
   const deliveries = deliveriesResponse?.data || []
   const drivers = driversResponse?.data || []
   const vehicles = vehiclesResponse?.data || []
   const transactions = transactionsResponse?.data || []
+  const customers = customersResponse?.data || []
 
   // Mutations
   const updateStatusMutation = useMutation({
@@ -636,14 +939,17 @@ export default function DeliveriesPage() {
   ]
 
   const handleSubmit = (data: DeliveryFormData) => {
-    // Note: Delivery creation is typically done from the transaction page
-    // This form is primarily for editing existing deliveries
+    // Delivery creation/update
     if (selectedDelivery) {
-      // For updates, we would need an updateDelivery API method
-      // Currently only status update is available
+      // For updates
       console.log('Update delivery:', data)
+    } else {
+      // For new delivery
+      console.log('Create delivery:', data)
     }
     setOpenDialog(false)
+    queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
   }
 
   if (isLoadingDeliveries) {
@@ -691,6 +997,7 @@ export default function DeliveriesPage() {
           drivers={drivers}
           vehicles={vehicles}
           transactions={transactions}
+          customers={customers}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
           loading={false}

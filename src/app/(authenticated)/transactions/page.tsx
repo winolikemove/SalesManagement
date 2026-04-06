@@ -170,6 +170,9 @@ interface TransactionItemFormData {
   discountPercent: number
   hasSpecialPrice: boolean
   originalPrice: number
+  fulfillmentStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED'
+  qtyFulfilledUnit: number
+  qtyFulfilledKg: number
 }
 
 interface TransactionFormData {
@@ -224,6 +227,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           discountPercent: 0,
           hasSpecialPrice: false,
           originalPrice: i.pricePerUnit,
+          fulfillmentStatus: i.fulfillmentStatus || 'UNFULFILLED',
+          qtyFulfilledUnit: i.qtyFulfilledUnit || 0,
+          qtyFulfilledKg: i.qtyFulfilledKg || 0,
         })) || [],
         discountPercent: 0,
         paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
@@ -447,6 +453,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         discountPercent: 0,
         hasSpecialPrice: false,
         originalPrice: 0,
+        fulfillmentStatus: 'UNFULFILLED' as const,
+        qtyFulfilledUnit: 0,
+        qtyFulfilledKg: 0,
       }]
     }))
   }
@@ -684,6 +693,55 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                   </div>
                 </div>
               </div>
+
+              {/* Fulfillment Status - Only show in edit mode */}
+              {transaction && (
+                <div className="mt-3 pt-3 border-t border-dashed">
+                  <div className="grid grid-cols-12 gap-2">
+                    <div className="col-span-3">
+                      <label className="text-xs text-muted-foreground mb-1 block">Status Pengiriman</label>
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                        value={item.fulfillmentStatus}
+                        onChange={(e) => updateItem(index, 'fulfillmentStatus', e.target.value)}
+                      >
+                        <option value="UNFULFILLED">Belum Terpenuhi</option>
+                        <option value="PARTIAL">Sebagian</option>
+                        <option value="FULFILLED">Terpenuhi</option>
+                      </select>
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim (Unit)</label>
+                      <NumberInput
+                        className="h-9 text-xs"
+                        value={item.qtyFulfilledUnit}
+                        onChange={(value) => {
+                          const newItems = [...formData.items]
+                          newItems[index] = {
+                            ...newItems[index],
+                            qtyFulfilledUnit: value,
+                            qtyFulfilledKg: value * newItems[index].unitWeight
+                          }
+                          setFormData(prev => ({ ...prev, items: newItems }))
+                        }}
+                        min={0}
+                        max={item.quantity}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim ({item.kgName || 'Kg'})</label>
+                      <div className="h-9 flex items-center text-xs bg-muted/30 rounded-md px-2">
+                        {(item.qtyFulfilledKg || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="col-span-3 flex items-end">
+                      <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100'}>
+                        {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 
