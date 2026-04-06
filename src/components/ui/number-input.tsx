@@ -20,8 +20,15 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
 
     // Sync display value when external value changes
     React.useEffect(() => {
-      setDisplayValue(String(value || ''))
-    }, [value])
+      if (value === 0 || value === null || value === undefined) {
+        setDisplayValue('')
+      } else if (allowDecimal) {
+        // Always show 2 decimal places for decimal values
+        setDisplayValue(value.toFixed(2))
+      } else {
+        setDisplayValue(String(value))
+      }
+    }, [value, allowDecimal])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       let inputValue = e.target.value
