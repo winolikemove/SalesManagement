@@ -3,7 +3,7 @@
 // =============================================
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { api, TokenManager } from '@/lib/api'
 import { STORAGE_KEYS } from '@/lib/constants'
 import type { User, LoginCredentials, AuthTokens } from '@/types'
@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>()(
           TokenManager.setTokens(tokens)
 
           // Save user data
-          if (credentials.rememberMe) {
+          if (typeof window !== 'undefined' && credentials.rememberMe) {
             localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true')
           }
 
@@ -91,7 +91,9 @@ export const useAuthStore = create<AuthState>()(
           // Ignore logout errors
         } finally {
           TokenManager.clearTokens()
-          localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME)
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME)
+          }
 
           set({
             user: null,
@@ -196,6 +198,17 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => {
+        // Return a dummy storage on server side
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
+        return localStorage
+      }),
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

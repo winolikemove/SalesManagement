@@ -3,7 +3,7 @@
 // =============================================
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface Breadcrumb {
   title: string
@@ -59,7 +59,7 @@ interface Notification {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Mock Mode - Default to TRUE for testing
       isMockMode: true,
       toggleMockMode: () => set((state) => ({ isMockMode: !state.isMockMode })),
@@ -112,6 +112,17 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'app-storage',
+      storage: createJSONStorage(() => {
+        // Return a dummy storage on server side
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
+        return localStorage
+      }),
       partialize: (state) => ({
         isMockMode: state.isMockMode,
         sidebarOpen: state.sidebarOpen,
