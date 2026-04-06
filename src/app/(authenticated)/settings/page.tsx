@@ -28,6 +28,7 @@ import { useIsAdmin } from '@/stores/auth-store'
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS } from '@/lib/constants'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
+import { parseNumberInput } from '@/lib/utils'
 
 // ============ Mock Config Data ============
 const mockConfig = {
@@ -233,7 +234,8 @@ export default function SettingsPage() {
                   <Input
                     type="number"
                     value={config.taxRate}
-                    onChange={(e) => setConfig({ ...config, taxRate: Number(e.target.value) })}
+                    onChange={(e) => setConfig({ ...config, taxRate: parseNumberInput(e.target.value) })}
+                    onBlur={(e) => setConfig({ ...config, taxRate: parseNumberInput(e.target.value) })}
                     min={0}
                     max={100}
                   />
@@ -264,7 +266,8 @@ export default function SettingsPage() {
                   <Input
                     type="number"
                     value={config.invoiceStartingNumber}
-                    onChange={(e) => setConfig({ ...config, invoiceStartingNumber: Number(e.target.value) })}
+                    onChange={(e) => setConfig({ ...config, invoiceStartingNumber: parseNumberInput(e.target.value) })}
+                    onBlur={(e) => setConfig({ ...config, invoiceStartingNumber: parseNumberInput(e.target.value) })}
                     min={1}
                   />
                 </div>
@@ -292,7 +295,8 @@ export default function SettingsPage() {
                   <Input
                     type="number"
                     value={config.deliveryNoteStartingNumber}
-                    onChange={(e) => setConfig({ ...config, deliveryNoteStartingNumber: Number(e.target.value) })}
+                    onChange={(e) => setConfig({ ...config, deliveryNoteStartingNumber: parseNumberInput(e.target.value) })}
+                    onBlur={(e) => setConfig({ ...config, deliveryNoteStartingNumber: parseNumberInput(e.target.value) })}
                     min={1}
                   />
                 </div>

@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen, StatsCard } from '@/components/shared'
-import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { formatCurrency, formatPercentage, parseNumberInput } from '@/lib/utils'
 import { TARGET_TYPE_LABELS, TARGET_PERIOD_LABELS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import type { Target } from '@/types'
@@ -107,7 +107,8 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
             type="number"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.year}
-            onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, year: parseNumberInput(e.target.value) })}
+            onBlur={(e) => setFormData({ ...formData, year: parseNumberInput(e.target.value) })}
             min={2020}
             max={2030}
             required
@@ -153,7 +154,8 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
           type="number"
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.targetAmount}
-          onChange={(e) => setFormData({ ...formData, targetAmount: Number(e.target.value) })}
+          onChange={(e) => setFormData({ ...formData, targetAmount: parseNumberInput(e.target.value) })}
+          onBlur={(e) => setFormData({ ...formData, targetAmount: parseNumberInput(e.target.value) })}
           min={0}
           required
         />

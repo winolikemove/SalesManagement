@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
+import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 
@@ -71,21 +71,23 @@ interface MockTransaction {
 }
 
 const mockCustomers: MockCustomer[] = [
-  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', phone: '0211234567', address: 'Jl. Sudirman No. 1, Jakarta', isActive: true },
-  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', phone: '0217654321', address: 'Jl. Gatot Subroto No. 10, Jakarta', isActive: true },
-  { id: '3', code: 'CUST003', name: 'UD DEF Store', phone: '0215551234', address: 'Jl. Hayam Wuruk No. 5, Jakarta', isActive: true },
+  { id: '1', code: 'SDB-R-289', name: 'ARUNIKA EATERY', phone: '', address: 'Jl. Cigugur-Palutungan, Cisantana, Kec. Cigugur, Kabupaten Kuningan, Jawa Barat 45552', isActive: true },
+  { id: '2', code: 'SDB-H-232', name: 'BATIQA HOTEL CIREBON', phone: '', address: 'Jl. Dr. Cipto Mangunkusumo No.99, Kedawung, Kec. Kedawung, Kabupaten Cirebon, Jawa Barat 45153', isActive: true },
+  { id: '3', code: 'SDA-H-068', name: 'HOTEL HILTON BANDUNG', phone: '', address: 'Jl. HOS Tjokroaminoto No. 41-43, Pasir Kaliki, Kec. Cicendo, Kota Bandung, Jawa Barat 40171', isActive: true },
 ]
 
 const mockProducts: MockProduct[] = [
-  { id: '1', code: 'PRD001', name: 'Laptop Dell XPS 15', category: 'Electronics', unit: 'pcs', basePrice: 15000000, sellingPrice: 18500000, stock: 25, minStock: 5, isActive: true },
-  { id: '2', code: 'PRD002', name: 'Office Chair Premium', category: 'Furniture', unit: 'pcs', basePrice: 2500000, sellingPrice: 3500000, stock: 15, minStock: 3, isActive: true },
-  { id: '3', code: 'PRD003', name: 'Printer Paper A4', category: 'Office Supplies', unit: 'pack', basePrice: 45000, sellingPrice: 65000, stock: 3, minStock: 20, isActive: true },
+  { id: '1', code: 'NCH7007', name: 'Halal Smoked Beef Brisket Cater (1kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 141200, sellingPrice: 141200, stock: 100, minStock: 10, isActive: true },
+  { id: '2', code: 'NPD1076S', name: 'H.Imported Smoked Beef Brisket Slc (1 kg/pack)', category: 'Imported Beef', unit: 'PACK', basePrice: 206500, sellingPrice: 206500, stock: 50, minStock: 5, isActive: true },
+  { id: '3', code: 'NPS0805A', name: 'Halal Star Beef Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 66900, sellingPrice: 66900, stock: 200, minStock: 20, isActive: true },
+  { id: '4', code: 'NPS0515B', name: 'Halal Star Chicken Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Chicken', unit: 'PACK', basePrice: 62500, sellingPrice: 62500, stock: 150, minStock: 15, isActive: true },
+  { id: '5', code: 'NPD1208S', name: 'Halal Beef Pastrami Sliced (1 kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 159700, sellingPrice: 159700, stock: 80, minStock: 8, isActive: true },
 ]
 
 const mockTransactions: MockTransaction[] = [
-  { id: '1', invoiceNumber: 'INV-2024-0001', customerId: '1', customer: mockCustomers[0], salesName: 'Admin', items: [{ id: '1', transactionId: '1', productId: '1', product: mockProducts[0], quantity: 2, unitPrice: 18500000, discount: 0, total: 37000000 }], subtotal: 37000000, taxAmount: 3700000, discount: 0, total: 40700000, paidAmount: 40700000, remainingAmount: 0, paymentStatus: 'PAID', paymentMethod: 'Bank Transfer', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T10:30:00' },
-  { id: '2', invoiceNumber: 'INV-2024-0002', customerId: '2', customer: mockCustomers[1], salesName: 'Admin', items: [{ id: '2', transactionId: '2', productId: '2', product: mockProducts[1], quantity: 5, unitPrice: 3500000, discount: 0, total: 17500000 }], subtotal: 17500000, taxAmount: 1750000, discount: 500000, total: 18750000, paidAmount: 10000000, remainingAmount: 8750000, paymentStatus: 'PARTIAL', paymentMethod: 'Cash', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T09:15:00' },
-  { id: '3', invoiceNumber: 'INV-2024-0003', customerId: '3', customer: mockCustomers[2], salesName: 'Sales 1', items: [{ id: '3', transactionId: '3', productId: '3', product: mockProducts[2], quantity: 100, unitPrice: 65000, discount: 0, total: 6500000 }], subtotal: 6500000, taxAmount: 650000, discount: 0, total: 7150000, paidAmount: 0, remainingAmount: 7150000, paymentStatus: 'UNPAID', deliveryStatus: 'PENDING', createdAt: '2024-01-07T08:45:00' },
+  { id: '1', invoiceNumber: 'INV-2024-0001', customerId: '1', customer: mockCustomers[0], salesName: 'Admin', items: [{ id: '1', transactionId: '1', productId: '1', product: mockProducts[0], quantity: 2, unitPrice: 141200, discount: 0, total: 282400 }], subtotal: 282400, taxAmount: 28240, discount: 0, total: 310640, paidAmount: 310640, remainingAmount: 0, paymentStatus: 'PAID', paymentMethod: 'Transfer Bank', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T10:30:00' },
+  { id: '2', invoiceNumber: 'INV-2024-0002', customerId: '2', customer: mockCustomers[1], salesName: 'Admin', items: [{ id: '2', transactionId: '2', productId: '3', product: mockProducts[2], quantity: 5, unitPrice: 66900, discount: 0, total: 334500 }], subtotal: 334500, taxAmount: 33450, discount: 50000, total: 317950, paidAmount: 200000, remainingAmount: 117950, paymentStatus: 'PARTIAL', paymentMethod: 'Cash', deliveryStatus: 'PROCESSING', createdAt: '2024-01-07T09:15:00' },
+  { id: '3', invoiceNumber: 'INV-2024-0003', customerId: '3', customer: mockCustomers[2], salesName: 'Sales 1', items: [{ id: '3', transactionId: '3', productId: '4', product: mockProducts[3], quantity: 10, unitPrice: 62500, discount: 0, total: 625000 }], subtotal: 625000, taxAmount: 62500, discount: 0, total: 687500, paidAmount: 0, remainingAmount: 687500, paymentStatus: 'UNPAID', deliveryStatus: 'PENDING', createdAt: '2024-01-07T08:45:00' },
 ]
 
 // ============ Transaction Item Row ============
@@ -129,7 +131,8 @@ function TransactionItemRow({ item, products, onChange, onRemove }: TransactionI
           type="number"
           className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
           value={item.unitPrice}
-          onChange={(e) => onChange({ ...item, unitPrice: Number(e.target.value) })}
+          onChange={(e) => onChange({ ...item, unitPrice: parseNumberInput(e.target.value) })}
+          onBlur={(e) => onChange({ ...item, unitPrice: parseNumberInput(e.target.value) })}
           min={0}
         />
       </div>
@@ -139,7 +142,8 @@ function TransactionItemRow({ item, products, onChange, onRemove }: TransactionI
           type="number"
           className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
           value={item.quantity}
-          onChange={(e) => onChange({ ...item, quantity: Number(e.target.value) })}
+          onChange={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
+          onBlur={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
           min={1}
           max={selectedProduct?.stock || 999}
         />
@@ -150,7 +154,8 @@ function TransactionItemRow({ item, products, onChange, onRemove }: TransactionI
           type="number"
           className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
           value={item.discount}
-          onChange={(e) => onChange({ ...item, discount: Number(e.target.value) })}
+          onChange={(e) => onChange({ ...item, discount: parseNumberInput(e.target.value) })}
+          onBlur={(e) => onChange({ ...item, discount: parseNumberInput(e.target.value) })}
           min={0}
         />
       </div>
@@ -300,7 +305,8 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
             type="number"
             className="flex h-8 w-32 rounded-md border border-input bg-background px-2 py-1 text-sm text-right"
             value={formData.discount}
-            onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, discount: parseNumberInput(e.target.value) })}
+            onBlur={(e) => setFormData({ ...formData, discount: parseNumberInput(e.target.value) })}
             min={0}
           />
         </div>
@@ -331,7 +337,8 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
             type="number"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.paidAmount}
-            onChange={(e) => setFormData({ ...formData, paidAmount: Number(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, paidAmount: parseNumberInput(e.target.value) })}
+            onBlur={(e) => setFormData({ ...formData, paidAmount: parseNumberInput(e.target.value) })}
             min={0}
             max={total}
           />

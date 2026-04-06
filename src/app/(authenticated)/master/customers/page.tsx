@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
-import { formatDateTime, formatCurrency } from '@/lib/utils'
+import { formatDateTime, formatCurrency, parseNumberInput } from '@/lib/utils'
 import { usePageHeader } from '@/stores/app-store'
 import type { Customer } from '@/types'
 
@@ -210,7 +210,8 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.creditLimit}
-              onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, creditLimit: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, creditLimit: parseNumberInput(e.target.value) })}
               min={0}
               placeholder="0"
             />
@@ -221,7 +222,8 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.paymentTerms}
-              onChange={(e) => setFormData({ ...formData, paymentTerms: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, paymentTerms: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, paymentTerms: parseNumberInput(e.target.value) })}
               min={0}
               placeholder="30"
             />

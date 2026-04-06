@@ -100,6 +100,28 @@ export function formatNumber(
   }).format(value)
 }
 
+/**
+ * Parse number input and remove leading zeros
+ * Example: "05000" -> 5000, "0" -> 0, "007.5" -> 7.5
+ */
+export function parseNumberInput(value: string | number): number {
+  if (typeof value === 'number') return value
+  if (!value || value === '') return 0
+  
+  // Remove leading zeros but keep one zero if the value is just "0" or starts with "0."
+  const trimmed = String(value).trim()
+  
+  // Handle decimal numbers with leading zeros like "007.5"
+  if (trimmed.includes('.')) {
+    const [integer, decimal] = trimmed.split('.')
+    const cleanInteger = parseInt(integer, 10).toString()
+    return parseFloat(`${cleanInteger}.${decimal || 0}`)
+  }
+  
+  // Handle integers with leading zeros like "05000"
+  return parseInt(trimmed, 10)
+}
+
 export function formatPercentage(
   value: number,
   options?: {

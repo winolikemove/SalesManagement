@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
-import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
+import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
 import { DEFAULT_CATEGORIES, DEFAULT_UNITS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import type { Product } from '@/types'
@@ -156,7 +156,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.baseUnitWeight}
-              onChange={(e) => setFormData({ ...formData, baseUnitWeight: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, baseUnitWeight: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, baseUnitWeight: parseNumberInput(e.target.value) })}
               min={0}
               step={0.01}
               required
@@ -176,7 +177,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.basePricePerKg}
-              onChange={(e) => setFormData({ ...formData, basePricePerKg: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, basePricePerKg: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, basePricePerKg: parseNumberInput(e.target.value) })}
               min={0}
               required
               placeholder="Price per Kg"
@@ -188,7 +190,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.basePricePerUnit}
-              onChange={(e) => setFormData({ ...formData, basePricePerUnit: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, basePricePerUnit: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, basePricePerUnit: parseNumberInput(e.target.value) })}
               min={0}
               required
               placeholder="Price per unit"
@@ -217,7 +220,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.stockQtyUnit}
-              onChange={(e) => setFormData({ ...formData, stockQtyUnit: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, stockQtyUnit: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, stockQtyUnit: parseNumberInput(e.target.value) })}
               min={0}
               required
               placeholder="Quantity in units"
@@ -240,7 +244,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               type="number"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.minStock}
-              onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, minStock: parseNumberInput(e.target.value) })}
+              onBlur={(e) => setFormData({ ...formData, minStock: parseNumberInput(e.target.value) })}
               min={0}
               required
               placeholder="Minimum stock alert"

@@ -8,27 +8,29 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, parseNumberInput } from '@/lib/utils'
 import { usePageHeader } from '@/stores/app-store'
 import type { CustomerPrice, Customer, Product } from '@/types'
 
 // ============ Mock Data ============
 const mockCustomers: Customer[] = [
-  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', phone: '0211234567', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', phone: '0217654321', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', code: 'CUST003', name: 'UD DEF Store', phone: '0215551234', isActive: true, createdAt: '', updatedAt: '' },
+  { id: '1', code: 'SDB-R-289', name: 'ARUNIKA EATERY', phone: '', isActive: true, createdAt: '', updatedAt: '' },
+  { id: '2', code: 'SDB-H-232', name: 'BATIQA HOTEL CIREBON', phone: '', isActive: true, createdAt: '', updatedAt: '' },
+  { id: '3', code: 'SDA-H-068', name: 'HOTEL HILTON BANDUNG', phone: '', isActive: true, createdAt: '', updatedAt: '' },
 ]
 
 const mockProducts: Product[] = [
-  { id: '1', code: 'PRD001', name: 'Laptop Dell XPS 15', category: 'Electronics', unit: 'pcs', basePrice: 15000000, sellingPrice: 18500000, stock: 25, minStock: 5, isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', code: 'PRD002', name: 'Office Chair Premium', category: 'Furniture', unit: 'pcs', basePrice: 2500000, sellingPrice: 3500000, stock: 15, minStock: 3, isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', code: 'PRD003', name: 'Printer Paper A4', category: 'Office Supplies', unit: 'pack', basePrice: 45000, sellingPrice: 65000, stock: 3, minStock: 20, isActive: true, createdAt: '', updatedAt: '' },
+  { id: '1', code: 'NCH7007', name: 'Halal Smoked Beef Brisket Cater (1kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 141200, sellingPrice: 141200, stock: 100, minStock: 10, isActive: true, createdAt: '', updatedAt: '' },
+  { id: '2', code: 'NPD1076S', name: 'H.Imported Smoked Beef Brisket Slc (1 kg/pack)', category: 'Imported Beef', unit: 'PACK', basePrice: 206500, sellingPrice: 206500, stock: 50, minStock: 5, isActive: true, createdAt: '', updatedAt: '' },
+  { id: '3', code: 'NPS0805A', name: 'Halal Star Beef Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 66900, sellingPrice: 66900, stock: 200, minStock: 20, isActive: true, createdAt: '', updatedAt: '' },
+  { id: '4', code: 'NPS0515B', name: 'Halal Star Chicken Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Chicken', unit: 'PACK', basePrice: 62500, sellingPrice: 62500, stock: 150, minStock: 15, isActive: true, createdAt: '', updatedAt: '' },
+  { id: '5', code: 'NPD1208S', name: 'Halal Beef Pastrami Sliced (1 kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 159700, sellingPrice: 159700, stock: 80, minStock: 8, isActive: true, createdAt: '', updatedAt: '' },
 ]
 
 const mockCustomerPrices: CustomerPrice[] = [
-  { id: '1', customerId: '1', productId: '1', specialPrice: 17000000, customer: mockCustomers[0], product: mockProducts[0], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-  { id: '2', customerId: '1', productId: '2', specialPrice: 3200000, customer: mockCustomers[0], product: mockProducts[1], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-  { id: '3', customerId: '2', productId: '1', specialPrice: 17500000, customer: mockCustomers[1], product: mockProducts[0], createdAt: '2024-01-02', updatedAt: '2024-01-02' },
+  { id: '1', customerId: '1', productId: '1', specialPrice: 135000, customer: mockCustomers[0], product: mockProducts[0], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
+  { id: '2', customerId: '1', productId: '2', specialPrice: 198000, customer: mockCustomers[0], product: mockProducts[1], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
+  { id: '3', customerId: '2', productId: '3', specialPrice: 64000, customer: mockCustomers[1], product: mockProducts[2], createdAt: '2024-01-02', updatedAt: '2024-01-02' },
 ]
 
 // ============ Customer Price Form Component ============
@@ -104,7 +106,8 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
           type="number"
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.specialPrice}
-          onChange={(e) => setFormData({ ...formData, specialPrice: Number(e.target.value) })}
+          onChange={(e) => setFormData({ ...formData, specialPrice: parseNumberInput(e.target.value) })}
+          onBlur={(e) => setFormData({ ...formData, specialPrice: parseNumberInput(e.target.value) })}
           min={0}
           required
         />

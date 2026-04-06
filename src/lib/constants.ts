@@ -167,14 +167,13 @@ export const TRANSACTION_STATUS_COLORS: Record<string, string> = {
 
 // ============ Default Categories ============
 export const DEFAULT_CATEGORIES = [
-  'Semen',
-  'Bata',
-  'Besi',
-  'Pasir',
-  'Keramik',
-  'Cat',
-  'Atap',
-  'Pipa',
+  'Halal Beef',
+  'Halal Chicken',
+  'Imported Beef',
+  'Smoked Meat',
+  'Sausage',
+  'Deli Meat',
+  'Frozen Food',
   'Lainnya',
 ]
 
@@ -196,14 +195,13 @@ export const DEFAULT_VEHICLE_TYPES = [
 
 // ============ Default Units ============
 export const DEFAULT_UNITS = [
-  'sak',
-  'buah',
-  'batang',
-  'kubik',
-  'dus',
-  'pail',
-  'lembar',
-  'kg',
+  'PACK',
+  'KG',
+  'BUAH',
+  'DUS',
+  'PIECE',
+  'BOX',
+  'LAINNYA',
 ]
 
 // ============ Number Formatting ============
