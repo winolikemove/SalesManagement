@@ -717,10 +717,18 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                         value={item.qtyFulfilledUnit}
                         onChange={(value) => {
                           const newItems = [...formData.items]
+                          // Auto-calculate fulfillment status
+                          let newStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED' = 'UNFULFILLED'
+                          if (value >= item.quantity) {
+                            newStatus = 'FULFILLED'
+                          } else if (value > 0) {
+                            newStatus = 'PARTIAL'
+                          }
                           newItems[index] = {
                             ...newItems[index],
                             qtyFulfilledUnit: value,
-                            qtyFulfilledKg: value * newItems[index].unitWeight
+                            qtyFulfilledKg: value * newItems[index].unitWeight,
+                            fulfillmentStatus: newStatus
                           }
                           setFormData(prev => ({ ...prev, items: newItems }))
                         }}

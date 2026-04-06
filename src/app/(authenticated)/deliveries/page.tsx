@@ -11,6 +11,7 @@ import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-
 import { PageHeader, ModalForm, LoadingScreen } from '@/components/shared'
 import { formatDateTime, formatDate, formatCurrency } from '@/lib/utils'
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, FULFILLMENT_STATUS_LABELS, FULFILLMENT_STATUS_COLORS } from '@/lib/constants'
+import { NumberInput } from '@/components/ui/number-input'
 import { usePageHeader } from '@/stores/app-store'
 import { api } from '@/lib/api'
 import type { Delivery, Transaction, Driver, Vehicle, ApiResponse, Customer, TransactionItem, DeliveryItem } from '@/types'
@@ -352,15 +353,19 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, on
       {/* Items to Deliver */}
       {formData.items.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium">Item yang Dikirim</label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Item yang Dikirim</label>
+            <span className="text-xs text-muted-foreground">* Kolom 'Terkirim' & 'Sisa' akan update otomatis</span>
+          </div>
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-3 py-2 text-left">Produk</th>
-                  <th className="px-3 py-2 text-right">Qty Order</th>
-                  <th className="px-3 py-2 text-right">Terkirim</th>
-                  <th className="px-3 py-2 text-right">Sisa</th>
+                  <th className="px-3 py-2 text-right">Order</th>
+                  <th className="px-3 py-2 text-right">Sudah</th>
+                  <th className="px-3 py-2 text-right bg-green-50 dark:bg-green-950/30">Terkirim*</th>
+                  <th className="px-3 py-2 text-right bg-orange-50 dark:bg-orange-950/30">Sisa*</th>
                   <th className="px-3 py-2 text-right">Kirim</th>
                 </tr>
               </thead>
@@ -372,14 +377,14 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, on
                       <p className="text-xs text-muted-foreground">{item.productCode}</p>
                     </td>
                     <td className="px-3 py-2 text-right">{item.qtyOrdered} {item.unitName}</td>
-                    <td className="px-3 py-2 text-right text-green-600">{item.qtyFulfilled} {item.unitName}</td>
-                    <td className="px-3 py-2 text-right text-orange-600">{item.qtyRemaining} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{item.qtyFulfilled} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right bg-green-50 dark:bg-green-950/30 font-medium text-green-700 dark:text-green-300">{item.qtyFulfilled + item.qtyToDeliver} {item.unitName}</td>
+                    <td className="px-3 py-2 text-right bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300">{item.qtyRemaining - item.qtyToDeliver} {item.unitName}</td>
                     <td className="px-3 py-2 text-right">
-                      <input
-                        type="number"
-                        className="w-16 h-8 rounded border border-input bg-background px-2 text-right text-sm"
+                      <NumberInput
+                        className="w-16 h-8 text-right text-sm"
                         value={item.qtyToDeliver}
-                        onChange={(e) => updateItemQty(index, parseInt(e.target.value) || 0)}
+                        onChange={(value) => updateItemQty(index, value)}
                         min={0}
                         max={item.qtyRemaining}
                       />
