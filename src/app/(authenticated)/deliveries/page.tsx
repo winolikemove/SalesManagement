@@ -3,43 +3,17 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Truck, CheckCircle, MapPin } from 'lucide-react'
+import { Plus, Pencil, Eye, Truck, CheckCircle, MapPin, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
-import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatDateTime, formatDate, formatCurrency, cn } from '@/lib/utils'
+import { PageHeader, ModalForm, LoadingScreen } from '@/components/shared'
+import { formatDateTime, formatDate, formatCurrency } from '@/lib/utils'
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
-import type { Delivery, Transaction, Driver, Vehicle, Customer } from '@/types'
-
-// ============ Mock Data ============
-const mockCustomers: Customer[] = [
-  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', phone: '0211234567', address: 'Jl. Sudirman No. 1, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', phone: '0217654321', address: 'Jl. Gatot Subroto No. 10, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', code: 'CUST003', name: 'UD DEF Store', phone: '0215551234', address: 'Jl. Hayam Wuruk No. 5, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
-]
-
-const mockDrivers: Driver[] = [
-  { id: '1', name: 'Budi Santoso', phone: '081234567890', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', name: 'Ahmad Wijaya', phone: '081234567891', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', name: 'Dedi Kurniawan', phone: '081234567892', isActive: true, createdAt: '', updatedAt: '' },
-]
-
-const mockVehicles: Vehicle[] = [
-  { id: '1', plateNumber: 'B 1234 ABC', type: 'Pickup', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', plateNumber: 'B 5678 DEF', type: 'Box Truck', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', plateNumber: 'B 9012 GHI', type: 'Van', isActive: true, createdAt: '', updatedAt: '' },
-]
-
-const mockDeliveries: Delivery[] = [
-  { id: '1', deliveryNumber: 'DEL-2024-0001', transactionId: '1', customerId: '1', customer: mockCustomers[0], driverId: '1', driver: mockDrivers[0], vehicleId: '1', vehicle: mockVehicles[0], deliveryAddress: 'Jl. Sudirman No. 1, Jakarta', deliveryDate: '2024-01-08', status: 'in_transit', createdAt: '2024-01-07T10:00:00', updatedAt: '' },
-  { id: '2', deliveryNumber: 'DEL-2024-0002', transactionId: '2', customerId: '2', customer: mockCustomers[1], driverId: '2', driver: mockDrivers[1], vehicleId: '2', vehicle: mockVehicles[1], deliveryAddress: 'Jl. Gatot Subroto No. 10, Jakarta', status: 'pending', createdAt: '2024-01-07T11:00:00', updatedAt: '' },
-  { id: '3', deliveryNumber: 'DEL-2024-0003', transactionId: '3', customerId: '3', customer: mockCustomers[2], status: 'pending', createdAt: '2024-01-07T12:00:00', updatedAt: '' },
-  { id: '4', deliveryNumber: 'DEL-2024-0004', transactionId: '4', customerId: '1', customer: mockCustomers[0], driverId: '1', driver: mockDrivers[0], vehicleId: '1', vehicle: mockVehicles[0], deliveryAddress: 'Jl. Sudirman No. 1, Jakarta', status: 'delivered', completedAt: '2024-01-06T15:30:00', createdAt: '2024-01-06T09:00:00', updatedAt: '' },
-]
+import { api } from '@/lib/api'
+import type { Delivery, Transaction, Driver, Vehicle, ApiResponse } from '@/types'
 
 // ============ Delivery Form Component ============
 interface DeliveryFormData {
@@ -64,15 +38,31 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
     transactionId: delivery?.transactionId || '',
     driverId: delivery?.driverId || '',
     vehicleId: delivery?.vehicleId || '',
-    deliveryAddress: delivery?.deliveryAddress || '',
-    deliveryDate: delivery?.deliveryDate || '',
+    deliveryAddress: delivery?.customerAddress || '',
+    deliveryDate: delivery?.deliveryDate || new Date().toISOString().split('T')[0],
     notes: delivery?.notes || '',
   })
+
+  // Update delivery address when transaction changes
+  const selectedTransaction = transactions.find(t => t.id === formData.transactionId)
+  React.useEffect(() => {
+    if (selectedTransaction && !delivery) {
+      setFormData(prev => ({
+        ...prev,
+        deliveryAddress: selectedTransaction.customerAddress || ''
+      }))
+    }
+  }, [selectedTransaction, delivery])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(formData)
   }
+
+  // Filter transactions that are pending or processing for delivery
+  const availableTransactions = transactions.filter(t => 
+    t.deliveryStatus === 'PENDING' || t.deliveryStatus === 'PROCESSING'
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -86,10 +76,17 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
           disabled={!!delivery}
         >
           <option value="">Select Transaction</option>
-          {transactions.map((tx) => (
-            <option key={tx.id} value={tx.id}>{tx.invoiceNumber}</option>
+          {availableTransactions.map((tx) => (
+            <option key={tx.id} value={tx.id}>
+              {tx.invoiceNumber} - {tx.customerName}
+            </option>
           ))}
         </select>
+        {selectedTransaction && (
+          <p className="text-xs text-muted-foreground">
+            Customer: {selectedTransaction.customerName} | Total: {formatCurrency(selectedTransaction.grandTotal)}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -102,7 +99,7 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
           >
             <option value="">Select Driver</option>
             {drivers.filter(d => d.isActive).map((driver) => (
-              <option key={driver.id} value={driver.id}>{driver.name}</option>
+              <option key={driver.id} value={driver.id}>{driver.driverName}</option>
             ))}
           </select>
         </div>
@@ -115,7 +112,7 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
           >
             <option value="">Select Vehicle</option>
             {vehicles.filter(v => v.isActive).map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber} - {vehicle.type}</option>
+              <option key={vehicle.id} value={vehicle.id}>{vehicle.vehiclePlate} - {vehicle.vehicleType}</option>
             ))}
           </select>
         </div>
@@ -162,6 +159,257 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, onSubmit, onC
   )
 }
 
+// ============ Delivery Detail View Component ============
+function DeliveryDetailView({ delivery, onEdit }: { delivery: Delivery; onEdit: () => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Delivery Number</p>
+          <p className="font-medium">{delivery.deliveryNumber}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Status</p>
+          <Badge className={DELIVERY_STATUS_COLORS[delivery.deliveryStatus]}>
+            {DELIVERY_STATUS_LABELS[delivery.deliveryStatus]}
+          </Badge>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Invoice Number</p>
+          <p className="font-medium">{delivery.invoiceNumber}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Delivery Date</p>
+          <p className="font-medium">{formatDate(delivery.deliveryDate) || '-'}</p>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Customer</p>
+          <p className="font-medium">{delivery.customerName}</p>
+          <p className="text-xs text-muted-foreground">{delivery.customerCode}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Customer Phone</p>
+          <p className="font-medium">{delivery.customerPhone || '-'}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm text-muted-foreground">Delivery Address</p>
+        <p className="font-medium">{delivery.customerAddress || '-'}</p>
+        {delivery.googleMapsUrl && (
+          <a 
+            href={delivery.googleMapsUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+          >
+            <MapPin className="h-3 w-3" />
+            View on Google Maps
+          </a>
+        )}
+      </div>
+
+      <Separator />
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Driver</p>
+          <p className="font-medium">{delivery.driverName || 'Not assigned'}</p>
+          {delivery.driverPhone && (
+            <p className="text-xs text-muted-foreground">{delivery.driverPhone}</p>
+          )}
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Vehicle</p>
+          <p className="font-medium">{delivery.vehiclePlate || '-'}</p>
+          {delivery.vehicleType && (
+            <p className="text-xs text-muted-foreground">{delivery.vehicleType}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Total Items</p>
+          <p className="font-medium">{delivery.totalItems}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total Weight</p>
+          <p className="font-medium">{delivery.totalWeight} kg</p>
+        </div>
+      </div>
+
+      {delivery.deliveryTime && (
+        <div>
+          <p className="text-sm text-muted-foreground">Delivery Time</p>
+          <p className="font-medium">{formatDateTime(delivery.deliveryTime)}</p>
+        </div>
+      )}
+
+      {delivery.receiverName && (
+        <div>
+          <p className="text-sm text-muted-foreground">Receiver Name</p>
+          <p className="font-medium">{delivery.receiverName}</p>
+        </div>
+      )}
+
+      {delivery.notes && (
+        <div>
+          <p className="text-sm text-muted-foreground">Notes</p>
+          <p>{delivery.notes}</p>
+        </div>
+      )}
+
+      {/* Delivery Items */}
+      {delivery.items && delivery.items.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <p className="text-sm font-medium mb-2">Delivery Items</p>
+            <div className="border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Product</th>
+                    <th className="px-3 py-2 text-right">Qty (Unit)</th>
+                    <th className="px-3 py-2 text-right">Qty (Kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {delivery.items.map((item) => (
+                    <tr key={item.id} className="border-t">
+                      <td className="px-3 py-2">
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">{item.productCode}</p>
+                      </td>
+                      <td className="px-3 py-2 text-right">{item.qtyDeliveredUnit} {item.unitName}</td>
+                      <td className="px-3 py-2 text-right">{item.qtyDeliveredKg} {item.kgName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => onEdit()}>Close</Button>
+        {delivery.deliveryStatus === 'PENDING' && (
+          <Button onClick={onEdit}>Edit Delivery</Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============ Status Update Dialog ============
+function StatusUpdateDialog({ 
+  delivery, 
+  open, 
+  onOpenChange, 
+  onConfirm, 
+  loading 
+}: { 
+  delivery: Delivery | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: (status: string, receiverName?: string, notes?: string) => void
+  loading?: boolean
+}) {
+  const [receiverName, setReceiverName] = React.useState('')
+  const [notes, setNotes] = React.useState('')
+
+  React.useEffect(() => {
+    if (!open) {
+      setReceiverName('')
+      setNotes('')
+    }
+  }, [open])
+
+  if (!delivery) return null
+
+  const getStatusAction = () => {
+    switch (delivery.deliveryStatus) {
+      case 'PENDING':
+        return { label: 'Start Delivery', newStatus: 'ON_DELIVERY' }
+      case 'ON_DELIVERY':
+        return { label: 'Mark as Delivered', newStatus: 'DELIVERED' }
+      default:
+        return null
+    }
+  }
+
+  const action = getStatusAction()
+  if (!action) return null
+
+  const handleConfirm = () => {
+    onConfirm(action.newStatus, receiverName, notes)
+  }
+
+  return (
+    <ModalForm
+      open={open}
+      onOpenChange={onOpenChange}
+      title={action.label}
+      maxWidth="md"
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to {action.label.toLowerCase()} for <strong>{delivery.deliveryNumber}</strong>?
+        </p>
+
+        {action.newStatus === 'ON_DELIVERY' && (
+          <div className="p-3 bg-muted/50 rounded-md">
+            <p className="text-sm"><strong>Driver:</strong> {delivery.driverName || 'Not assigned'}</p>
+            <p className="text-sm"><strong>Vehicle:</strong> {delivery.vehiclePlate || 'Not assigned'}</p>
+          </div>
+        )}
+
+        {action.newStatus === 'DELIVERED' && (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Receiver Name *</label>
+              <input
+                type="text"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={receiverName}
+                onChange={(e) => setReceiverName(e.target.value)}
+                placeholder="Name of person receiving the delivery"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any additional notes..."
+              />
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button 
+            onClick={handleConfirm} 
+            disabled={loading || (action.newStatus === 'DELIVERED' && !receiverName.trim())}
+          >
+            {loading ? 'Processing...' : 'Confirm'}
+          </Button>
+        </div>
+      </div>
+    </ModalForm>
+  )
+}
+
 // ============ Deliveries Page ============
 export default function DeliveriesPage() {
   const queryClient = useQueryClient()
@@ -169,7 +417,7 @@ export default function DeliveriesPage() {
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
   const [selectedDelivery, setSelectedDelivery] = React.useState<Delivery | null>(null)
-  const [deleteDialog, setDeleteDialog] = React.useState(false)
+  const [statusDialog, setStatusDialog] = React.useState(false)
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
 
   React.useEffect(() => {
@@ -177,59 +425,58 @@ export default function DeliveriesPage() {
     setBreadcrumbs([{ title: 'Deliveries' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Fetch data
-  const { data: deliveries, isLoading } = useQuery({
-    queryKey: ['deliveries'],
-    queryFn: async () => mockDeliveries,
+  // Fetch deliveries
+  const { data: deliveriesResponse, isLoading: isLoadingDeliveries } = useQuery({
+    queryKey: ['deliveries', statusFilter],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { pageSize: 100 }
+      if (statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+      return api.getDeliveries(params) as Promise<ApiResponse<Delivery[]>>
+    },
   })
 
-  const { data: drivers } = useQuery({
+  // Fetch drivers
+  const { data: driversResponse } = useQuery({
     queryKey: ['drivers'],
-    queryFn: async () => mockDrivers,
+    queryFn: async () => api.getDrivers({ activeOnly: true, pageSize: 100 }) as Promise<ApiResponse<Driver[]>>,
   })
 
-  const { data: vehicles } = useQuery({
+  // Fetch vehicles
+  const { data: vehiclesResponse } = useQuery({
     queryKey: ['vehicles'],
-    queryFn: async () => mockVehicles,
+    queryFn: async () => api.getVehicles({ activeOnly: true, pageSize: 100 }) as Promise<ApiResponse<Vehicle[]>>,
   })
 
-  // Filtered deliveries
-  const filteredDeliveries = React.useMemo(() => {
-    if (statusFilter === 'all') return deliveries
-    return deliveries?.filter((d) => d.status === statusFilter)
-  }, [deliveries, statusFilter])
+  // Fetch transactions for creating deliveries
+  const { data: transactionsResponse } = useQuery({
+    queryKey: ['transactions-for-delivery'],
+    queryFn: async () => api.getTransactions({ pageSize: 100 }) as Promise<ApiResponse<Transaction[]>>,
+  })
+
+  // Extract data from responses
+  const deliveries = deliveriesResponse?.data || []
+  const drivers = driversResponse?.data || []
+  const vehicles = vehiclesResponse?.data || []
+  const transactions = transactionsResponse?.data || []
 
   // Mutations
-  const createMutation = useMutation({
-    mutationFn: async (data: DeliveryFormData) => ({ success: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
-      setOpenDialog(false)
-    },
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<DeliveryFormData> }) => ({ success: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
-      setOpenDialog(false)
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => ({ success: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
-      setDeleteDialog(false)
-    },
-  })
-
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => ({ success: true }),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return api.updateDeliveryStatus(id, status)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      setStatusDialog(false)
     },
   })
+
+  // Handle status update with additional data
+  const handleStatusUpdate = (status: string, receiverName?: string, notes?: string) => {
+    if (!selectedDelivery) return
+    updateStatusMutation.mutate({ id: selectedDelivery.id, status })
+  }
 
   // Columns
   const columns: ColumnDef<Delivery>[] = [
@@ -241,30 +488,38 @@ export default function DeliveriesPage() {
       ),
     },
     {
-      accessorKey: 'customer',
+      accessorKey: 'invoiceNumber',
+      header: 'Invoice',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{row.getValue('invoiceNumber')}</span>
+      ),
+    },
+    {
+      accessorKey: 'customerName',
       header: ({ column }) => <SortableHeader column={column} title="Customer" />,
       cell: ({ row }) => {
-        const customer = row.original.customer
+        const delivery = row.original
         return (
           <div>
-            <p className="font-medium">{customer?.name}</p>
+            <p className="font-medium">{delivery.customerName}</p>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              {row.original.deliveryAddress || customer?.address || '-'}
+              {delivery.customerAddress?.substring(0, 40)}{delivery.customerAddress && delivery.customerAddress.length > 40 ? '...' : ''}
             </p>
           </div>
         )
       },
     },
     {
-      accessorKey: 'driver',
+      accessorKey: 'driverName',
       header: 'Driver',
       cell: ({ row }) => {
-        const driver = row.original.driver
-        return driver ? (
+        const driverName = row.getValue('driverName') as string
+        const driverPhone = row.original.driverPhone
+        return driverName ? (
           <div>
-            <p className="font-medium">{driver.name}</p>
-            <p className="text-xs text-muted-foreground">{driver.phone}</p>
+            <p className="font-medium">{driverName}</p>
+            {driverPhone && <p className="text-xs text-muted-foreground">{driverPhone}</p>}
           </div>
         ) : (
           <span className="text-muted-foreground">Not assigned</span>
@@ -272,22 +527,26 @@ export default function DeliveriesPage() {
       },
     },
     {
-      accessorKey: 'vehicle',
+      accessorKey: 'vehiclePlate',
       header: 'Vehicle',
       cell: ({ row }) => {
-        const vehicle = row.original.vehicle
-        return vehicle ? (
-          <span>{vehicle.plateNumber}</span>
+        const vehiclePlate = row.getValue('vehiclePlate') as string
+        const vehicleType = row.original.vehicleType
+        return vehiclePlate ? (
+          <div>
+            <p className="font-medium">{vehiclePlate}</p>
+            {vehicleType && <p className="text-xs text-muted-foreground">{vehicleType}</p>}
+          </div>
         ) : (
           <span className="text-muted-foreground">-</span>
         )
       },
     },
     {
-      accessorKey: 'status',
+      accessorKey: 'deliveryStatus',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.getValue('status') as string
+        const status = row.getValue('deliveryStatus') as string
         return (
           <Badge className={DELIVERY_STATUS_COLORS[status]}>
             {DELIVERY_STATUS_LABELS[status]}
@@ -299,6 +558,20 @@ export default function DeliveriesPage() {
       accessorKey: 'deliveryDate',
       header: 'Delivery Date',
       cell: ({ row }) => formatDate(row.getValue('deliveryDate')) || '-',
+    },
+    {
+      accessorKey: 'totalItems',
+      header: 'Items',
+      cell: ({ row }) => {
+        const totalItems = row.getValue('totalItems') as number
+        const totalWeight = row.original.totalWeight
+        return (
+          <div className="text-right">
+            <p className="font-medium">{totalItems}</p>
+            <p className="text-xs text-muted-foreground">{totalWeight} kg</p>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'createdAt',
@@ -321,44 +594,40 @@ export default function DeliveriesPage() {
                   setViewDialog(true)
                 },
               },
-              {
-                label: 'Edit',
-                icon: <Pencil className="h-4 w-4" />,
-                onClick: () => {
-                  setSelectedDelivery(delivery)
-                  setOpenDialog(true)
+              ...(delivery.deliveryStatus === 'PENDING' ? [
+                {
+                  label: 'Edit',
+                  icon: <Pencil className="h-4 w-4" />,
+                  onClick: () => {
+                    setSelectedDelivery(delivery)
+                    setOpenDialog(true)
+                  },
                 },
-              },
-              ...(delivery.status === 'pending' ? [{
-                label: 'Assign',
-                icon: <Truck className="h-4 w-4" />,
-                onClick: () => {
-                  updateStatusMutation.mutate({ id: delivery.id, status: 'assigned' })
-                },
-              }] : []),
-              ...(delivery.status === 'assigned' ? [{
-                label: 'Start Delivery',
-                icon: <Truck className="h-4 w-4" />,
-                onClick: () => {
-                  updateStatusMutation.mutate({ id: delivery.id, status: 'in_transit' })
-                },
-              }] : []),
-              ...(delivery.status === 'in_transit' ? [{
-                label: 'Complete',
+                {
+                  label: 'Start Delivery',
+                  icon: <Truck className="h-4 w-4" />,
+                  onClick: () => {
+                    setSelectedDelivery(delivery)
+                    setStatusDialog(true)
+                  },
+                }
+              ] : []),
+              ...(delivery.deliveryStatus === 'ON_DELIVERY' ? [{
+                label: 'Mark Delivered',
                 icon: <CheckCircle className="h-4 w-4" />,
                 onClick: () => {
-                  updateStatusMutation.mutate({ id: delivery.id, status: 'delivered' })
+                  setSelectedDelivery(delivery)
+                  setStatusDialog(true)
                 },
               }] : []),
-              {
-                label: 'Delete',
-                icon: <Trash2 className="h-4 w-4" />,
-                destructive: true,
+              ...(delivery.deliveryStatus !== 'DELIVERED' && delivery.deliveryStatus !== 'FAILED' ? [{
+                label: 'Mark Failed',
+                icon: <XCircle className="h-4 w-4" />,
                 onClick: () => {
                   setSelectedDelivery(delivery)
-                  setDeleteDialog(true)
+                  updateStatusMutation.mutate({ id: delivery.id, status: 'FAILED' })
                 },
-              },
+              }] : []),
             ]}
           />
         )
@@ -367,14 +636,17 @@ export default function DeliveriesPage() {
   ]
 
   const handleSubmit = (data: DeliveryFormData) => {
+    // Note: Delivery creation is typically done from the transaction page
+    // This form is primarily for editing existing deliveries
     if (selectedDelivery) {
-      updateMutation.mutate({ id: selectedDelivery.id, data })
-    } else {
-      createMutation.mutate(data)
+      // For updates, we would need an updateDelivery API method
+      // Currently only status update is available
+      console.log('Update delivery:', data)
     }
+    setOpenDialog(false)
   }
 
-  if (isLoading) {
+  if (isLoadingDeliveries) {
     return <LoadingScreen />
   }
 
@@ -389,7 +661,7 @@ export default function DeliveriesPage() {
 
       <DataTable
         columns={columns}
-        data={filteredDeliveries || []}
+        data={deliveries}
         searchKey="deliveryNumber"
         searchPlaceholder="Search deliveries..."
         toolbar={
@@ -399,11 +671,10 @@ export default function DeliveriesPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_transit">In Transit</option>
-            <option value="delivered">Delivered</option>
-            <option value="failed">Failed</option>
+            <option value="PENDING">Pending</option>
+            <option value="ON_DELIVERY">On Delivery</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="FAILED">Failed</option>
           </select>
         }
       />
@@ -417,12 +688,12 @@ export default function DeliveriesPage() {
       >
         <DeliveryForm
           delivery={selectedDelivery || undefined}
-          drivers={drivers || []}
-          vehicles={vehicles || []}
-          transactions={[]}
+          drivers={drivers}
+          vehicles={vehicles}
+          transactions={transactions}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
-          loading={createMutation.isPending || updateMutation.isPending}
+          loading={false}
         />
       </ModalForm>
 
@@ -434,70 +705,20 @@ export default function DeliveriesPage() {
         maxWidth="lg"
       >
         {selectedDelivery && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Delivery Number</p>
-                <p className="font-medium">{selectedDelivery.deliveryNumber}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={DELIVERY_STATUS_COLORS[selectedDelivery.status]}>
-                  {DELIVERY_STATUS_LABELS[selectedDelivery.status]}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Customer</p>
-                <p className="font-medium">{selectedDelivery.customer?.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Delivery Date</p>
-                <p className="font-medium">{formatDate(selectedDelivery.deliveryDate) || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Driver</p>
-                <p className="font-medium">{selectedDelivery.driver?.name || 'Not assigned'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Vehicle</p>
-                <p className="font-medium">{selectedDelivery.vehicle?.plateNumber || '-'}</p>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <p className="text-sm text-muted-foreground">Delivery Address</p>
-              <p className="font-medium">{selectedDelivery.deliveryAddress || selectedDelivery.customer?.address || '-'}</p>
-            </div>
-
-            {selectedDelivery.notes && (
-              <div>
-                <p className="text-sm text-muted-foreground">Notes</p>
-                <p>{selectedDelivery.notes}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setViewDialog(false)}>Close</Button>
-              <Button onClick={() => { setViewDialog(false); setOpenDialog(true); }}>
-                Edit Delivery
-              </Button>
-            </div>
-          </div>
+          <DeliveryDetailView 
+            delivery={selectedDelivery} 
+            onEdit={() => setViewDialog(false)} 
+          />
         )}
       </ModalForm>
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        open={deleteDialog}
-        onOpenChange={setDeleteDialog}
-        title="Delete Delivery"
-        description={`Are you sure you want to delete "${selectedDelivery?.deliveryNumber}"? This action cannot be undone.`}
-        variant="destructive"
-        confirmText="Delete"
-        onConfirm={() => selectedDelivery && deleteMutation.mutate(selectedDelivery.id)}
-        loading={deleteMutation.isPending}
+      {/* Status Update Dialog */}
+      <StatusUpdateDialog
+        delivery={selectedDelivery}
+        open={statusDialog}
+        onOpenChange={setStatusDialog}
+        onConfirm={handleStatusUpdate}
+        loading={updateStatusMutation.isPending}
       />
     </div>
   )

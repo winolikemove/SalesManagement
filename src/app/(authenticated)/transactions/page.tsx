@@ -10,98 +10,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
+import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import { useSalesNames, usePaymentMethods, useTaxRate } from '@/hooks/use-settings'
-
-// ============ Mock Data ============
-// Note: These mock data structures match the simplified UI needs
-// In production, these would come from the API with proper types
-
-interface MockCustomer {
-  id: string
-  code: string
-  name: string
-  phone: string
-  address: string
-  isActive: boolean
-}
-
-interface MockProduct {
-  id: string
-  code: string
-  name: string
-  category: string
-  unit: string
-  basePrice: number
-  sellingPrice: number
-  stock: number
-  minStock: number
-  isActive: boolean
-}
-
-interface MockTransactionItem {
-  id: string
-  transactionId: string
-  productId: string
-  product: MockProduct
-  quantity: number
-  unitPrice: number
-  discount: number
-  total: number
-}
-
-interface MockTransaction {
-  id: string
-  invoiceNumber: string
-  customerId: string
-  customer: MockCustomer
-  salesName: string
-  items: MockTransactionItem[]
-  subtotal: number
-  taxAmount: number
-  discount: number
-  total: number
-  paidAmount: number
-  remainingAmount: number
-  paymentStatus: 'PAID' | 'PARTIAL' | 'UNPAID'
-  paymentMethod: string
-  deliveryStatus: 'PENDING' | 'PROCESSING' | 'DELIVERED'
-  createdAt: string
-}
-
-const mockCustomers: MockCustomer[] = [
-  { id: '1', code: 'SDB-R-289', name: 'ARUNIKA EATERY', phone: '', address: 'Jl. Cigugur-Palutungan, Cisantana, Kec. Cigugur, Kabupaten Kuningan, Jawa Barat 45552', isActive: true },
-  { id: '2', code: 'SDB-H-232', name: 'BATIQA HOTEL CIREBON', phone: '', address: 'Jl. Dr. Cipto Mangunkusumo No.99, Kedawung, Kec. Kedawung, Kabupaten Cirebon, Jawa Barat 45153', isActive: true },
-  { id: '3', code: 'SDA-H-068', name: 'HOTEL HILTON BANDUNG', phone: '', address: 'Jl. HOS Tjokroaminoto No. 41-43, Pasir Kaliki, Kec. Cicendo, Kota Bandung, Jawa Barat 40171', isActive: true },
-]
-
-const mockProducts: MockProduct[] = [
-  { id: '1', code: 'NCH7007', name: 'Halal Smoked Beef Brisket Cater (1kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 141200, sellingPrice: 141200, stock: 100, minStock: 10, isActive: true },
-  { id: '2', code: 'NPD1076S', name: 'H.Imported Smoked Beef Brisket Slc (1 kg/pack)', category: 'Imported Beef', unit: 'PACK', basePrice: 206500, sellingPrice: 206500, stock: 50, minStock: 5, isActive: true },
-  { id: '3', code: 'NPS0805A', name: 'Halal Star Beef Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 66900, sellingPrice: 66900, stock: 200, minStock: 20, isActive: true },
-  { id: '4', code: 'NPS0515B', name: 'Halal Star Chicken Breakfast Ssg 25gr (500gr/pack)', category: 'Halal Chicken', unit: 'PACK', basePrice: 62500, sellingPrice: 62500, stock: 150, minStock: 15, isActive: true },
-  { id: '5', code: 'NPD1208S', name: 'Halal Beef Pastrami Sliced (1 kg/pack)', category: 'Halal Beef', unit: 'PACK', basePrice: 159700, sellingPrice: 159700, stock: 80, minStock: 8, isActive: true },
-]
-
-const mockTransactions: MockTransaction[] = [
-  { id: '1', invoiceNumber: 'INV-2024-0001', customerId: '1', customer: mockCustomers[0], salesName: 'Admin', items: [{ id: '1', transactionId: '1', productId: '1', product: mockProducts[0], quantity: 2, unitPrice: 141200, discount: 0, total: 282400 }], subtotal: 282400, taxAmount: 28240, discount: 0, total: 310640, paidAmount: 310640, remainingAmount: 0, paymentStatus: 'PAID', paymentMethod: 'Transfer Bank', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T10:30:00' },
-  { id: '2', invoiceNumber: 'INV-2024-0002', customerId: '2', customer: mockCustomers[1], salesName: 'Admin', items: [{ id: '2', transactionId: '2', productId: '3', product: mockProducts[2], quantity: 5, unitPrice: 66900, discount: 0, total: 334500 }], subtotal: 334500, taxAmount: 33450, discount: 50000, total: 317950, paidAmount: 200000, remainingAmount: 117950, paymentStatus: 'PARTIAL', paymentMethod: 'Cash', deliveryStatus: 'PROCESSING', createdAt: '2024-01-07T09:15:00' },
-  { id: '3', invoiceNumber: 'INV-2024-0003', customerId: '3', customer: mockCustomers[2], salesName: 'Sales 1', items: [{ id: '3', transactionId: '3', productId: '4', product: mockProducts[3], quantity: 10, unitPrice: 62500, discount: 0, total: 625000 }], subtotal: 625000, taxAmount: 62500, discount: 0, total: 687500, paidAmount: 0, remainingAmount: 687500, paymentStatus: 'UNPAID', deliveryStatus: 'PENDING', createdAt: '2024-01-07T08:45:00' },
-]
+import { api } from '@/lib/api'
+import type { Transaction, TransactionItem, Customer, Product } from '@/types'
 
 // ============ Transaction Item Row ============
 interface TransactionItemRowProps {
   item: TransactionItemFormData
-  products: MockProduct[]
+  products: Product[]
+  customerId: string | null
   onChange: (item: TransactionItemFormData) => void
   onRemove: () => void
 }
 
-function TransactionItemRow({ item, products, onChange, onRemove }: TransactionItemRowProps) {
+function TransactionItemRow({ item, products, customerId, onChange, onRemove }: TransactionItemRowProps) {
   const selectedProduct = products.find(p => p.id === item.productId)
+
+  // Fetch customer-specific price when product or customer changes
+  const { data: customerPrice } = useQuery({
+    queryKey: ['productCustomerPrice', item.productId, customerId],
+    queryFn: async () => {
+      if (!item.productId || !customerId) return null
+      const response = await api.getProductCustomerPrice(item.productId, customerId)
+      if (response.success && response.data) {
+        return response.data as {
+          pricePerKg: number
+          pricePerUnit: number
+          isPPN: boolean
+          discountPercent: number
+          isSpecialPrice: boolean
+        }
+      }
+      return null
+    },
+    enabled: !!item.productId && !!customerId,
+  })
+
+  // Update price when customer price data changes
+  React.useEffect(() => {
+    if (customerPrice && item.productId && customerId) {
+      onChange({
+        ...item,
+        unitPrice: customerPrice.pricePerUnit,
+      })
+    }
+  }, [customerPrice, item.productId, customerId])
 
   return (
     <div className="grid grid-cols-12 gap-2 items-end">
@@ -115,14 +72,14 @@ function TransactionItemRow({ item, products, onChange, onRemove }: TransactionI
             onChange({
               ...item,
               productId: e.target.value,
-              unitPrice: product?.sellingPrice || 0,
+              unitPrice: product?.basePricePerUnit || 0,
             })
           }}
         >
           <option value="">Select</option>
-          {products.filter(p => p.isActive && p.stock > 0).map((product) => (
+          {products.filter(p => p.isActive && p.stockQtyUnit > 0).map((product) => (
             <option key={product.id} value={product.id}>
-              {product.code} - {product.name} (Stock: {product.stock})
+              {product.productCode} - {product.productName} (Stock: {product.stockQtyUnit} {product.unitName})
             </option>
           ))}
         </select>
@@ -147,7 +104,7 @@ function TransactionItemRow({ item, products, onChange, onRemove }: TransactionI
           onChange={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
           onBlur={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
           min={1}
-          max={selectedProduct?.stock || 999}
+          max={selectedProduct?.stockQtyUnit || 999}
         />
       </div>
       <div className="col-span-2">
@@ -192,13 +149,13 @@ interface TransactionFormData {
   paymentMethod: string
   paidAmount: number
   notes: string
-  status: string
+  deliveryStatus: string
 }
 
 function TransactionForm({ transaction, customers, products, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
-  transaction?: MockTransaction
-  customers: MockCustomer[]
-  products: MockProduct[]
+  transaction?: Transaction
+  customers: Customer[]
+  products: Product[]
   salesNames: string[]
   paymentMethods: string[]
   taxRateSetting: number
@@ -209,12 +166,12 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
   const [formData, setFormData] = React.useState<TransactionFormData>({
     customerId: transaction?.customerId || '',
     salesName: transaction?.salesName || salesNames[0] || '',
-    items: transaction?.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount })) || [{ productId: '', quantity: 1, unitPrice: 0, discount: 0 }],
-    discount: transaction?.discount || 0,
-    paymentMethod: transaction?.paymentMethod || paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
+    items: transaction?.items?.map(i => ({ productId: i.productId, quantity: i.qtyOrderUnit, unitPrice: i.pricePerUnit, discount: 0 })) || [{ productId: '', quantity: 1, unitPrice: 0, discount: 0 }],
+    discount: transaction?.discountAmount || 0,
+    paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
     paidAmount: transaction?.paidAmount || 0,
-    notes: '',
-    status: transaction?.deliveryStatus || 'PENDING',
+    notes: transaction?.notes || '',
+    deliveryStatus: transaction?.deliveryStatus || 'PENDING',
   })
 
   const taxRate = taxRateSetting / 100 // Convert percentage to decimal
@@ -258,7 +215,7 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
           >
             <option value="">Select Customer</option>
             {customers.filter(c => c.isActive).map((customer) => (
-              <option key={customer.id} value={customer.id}>{customer.name}</option>
+              <option key={customer.id} value={customer.id}>{customer.customerName}</option>
             ))}
           </select>
         </div>
@@ -290,6 +247,7 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
               key={index}
               item={item}
               products={products}
+              customerId={formData.customerId || null}
               onChange={(updated) => updateItem(index, updated)}
               onRemove={() => removeItem(index)}
             />
@@ -304,7 +262,7 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
           <span>{formatCurrency(subtotal)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span>Tax (10%)</span>
+          <span>Tax ({taxRateSetting}%)</span>
           <span>{formatCurrency(taxAmount)}</span>
         </div>
         <div className="flex justify-between text-sm items-center">
@@ -361,23 +319,104 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Status</label>
-        <select
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.status}
-          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-        >
-          <option value="draft">Draft</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+        <label className="text-sm font-medium">Notes</label>
+        <textarea
+          className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Enter notes..."
+        />
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={loading}>
           {loading ? 'Saving...' : transaction ? 'Update' : 'Create'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ============ Payment Update Form ============
+interface PaymentUpdateFormData {
+  amount: number
+  paymentMethod: string
+  notes: string
+}
+
+function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, loading }: {
+  transaction: Transaction
+  paymentMethods: string[]
+  onSubmit: (data: PaymentUpdateFormData) => void
+  onCancel: () => void
+  loading?: boolean
+}) {
+  const [formData, setFormData] = React.useState<PaymentUpdateFormData>({
+    amount: 0,
+    paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
+    notes: '',
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-muted/50 rounded-lg p-4">
+        <div className="flex justify-between">
+          <span>Total Amount</span>
+          <span className="font-bold">{formatCurrency(transaction.grandTotal)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Paid Amount</span>
+          <span className="text-green-600">{formatCurrency(transaction.paidAmount)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Remaining</span>
+          <span className="text-red-600 font-bold">{formatCurrency(transaction.remainingAmount)}</span>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Additional Payment</label>
+        <input
+          type="number"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="Enter amount"
+          value={formData.amount}
+          onChange={(e) => setFormData({ ...formData, amount: parseNumberInput(e.target.value) })}
+          min={0}
+          max={transaction.remainingAmount}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Payment Method</label>
+        <select 
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.paymentMethod}
+          onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+        >
+          {paymentMethods.map((method) => (
+            <option key={method} value={method}>{method}</option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Notes</label>
+        <textarea
+          className="flex h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="Enter notes..."
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Processing...' : 'Update Payment'}
         </Button>
       </div>
     </form>
@@ -393,7 +432,7 @@ export default function TransactionsPage() {
   const taxRateSetting = useTaxRate()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
-  const [selectedTransaction, setSelectedTransaction] = React.useState<MockTransaction | null>(null)
+  const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
   const [deleteDialog, setDeleteDialog] = React.useState(false)
   const [paymentDialog, setPaymentDialog] = React.useState(false)
 
@@ -402,49 +441,116 @@ export default function TransactionsPage() {
     setBreadcrumbs([{ title: 'Transactions' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Fetch data
-  const { data: transactions, isLoading } = useQuery({
+  // Fetch transactions
+  const { data: transactionsResponse, isLoading: transactionsLoading } = useQuery({
     queryKey: ['transactions'],
-    queryFn: async () => mockTransactions,
+    queryFn: async () => {
+      const response = await api.getTransactions({ pageSize: 100 })
+      return response
+    },
   })
 
-  const { data: customers } = useQuery({
+  // Fetch customers
+  const { data: customersResponse, isLoading: customersLoading } = useQuery({
     queryKey: ['customers'],
-    queryFn: async () => mockCustomers,
+    queryFn: async () => {
+      const response = await api.getCustomers({ pageSize: 100 })
+      return response
+    },
   })
 
-  const { data: products } = useQuery({
+  // Fetch products
+  const { data: productsResponse, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: async () => mockProducts,
+    queryFn: async () => {
+      const response = await api.getProducts({ pageSize: 100 })
+      return response
+    },
   })
 
-  // Mutations
+  // Extract data from responses
+  const transactions = transactionsResponse?.success ? transactionsResponse.data as Transaction[] : []
+  const customers = customersResponse?.success ? customersResponse.data as Customer[] : []
+  const products = productsResponse?.success ? productsResponse.data as Product[] : []
+
+  // Fetch single transaction with items
+  const { data: transactionDetails } = useQuery({
+    queryKey: ['transaction', selectedTransaction?.id],
+    queryFn: async () => {
+      if (!selectedTransaction?.id) return null
+      const response = await api.getTransaction(selectedTransaction.id)
+      return response
+    },
+    enabled: !!selectedTransaction?.id && viewDialog,
+  })
+
+  const detailedTransaction = transactionDetails?.success ? transactionDetails.data as Transaction : selectedTransaction
+
+  // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: TransactionFormData) => ({ success: true }),
+    mutationFn: async (data: TransactionFormData) => {
+      const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount), 0)
+      const taxAmount = subtotal * (taxRateSetting / 100)
+      const grandTotal = subtotal + taxAmount - data.discount
+
+      const response = await api.createTransaction({
+        customerId: data.customerId,
+        salesId: '', // Will be filled by backend based on salesName
+        salesName: data.salesName,
+        subtotal,
+        taxAmount,
+        discountAmount: data.discount,
+        grandTotal,
+        notes: data.notes,
+        items: data.items.map(item => ({
+          productId: item.productId,
+          qtyOrderUnit: item.quantity,
+          pricePerUnit: item.unitPrice,
+          discount: item.discount,
+        })),
+      })
+      return response
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       setOpenDialog(false)
+      setSelectedTransaction(null)
     },
   })
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<TransactionFormData> }) => ({ success: true }),
+  // Update payment mutation
+  const updatePaymentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: PaymentUpdateFormData }) => {
+      const response = await api.updateTransactionPayment(id, {
+        amount: data.amount,
+        paymentMethod: data.paymentMethod,
+        notes: data.notes,
+      })
+      return response
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      setOpenDialog(false)
+      setPaymentDialog(false)
+      setSelectedTransaction(null)
     },
   })
 
+  // Delete mutation (not implemented in API, kept for UI consistency)
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => ({ success: true }),
+    mutationFn: async (id: string) => {
+      // Note: Transaction deletion is typically not supported
+      // This would need a specific API endpoint
+      return { success: false, error: 'Transaction deletion is not supported' }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       setDeleteDialog(false)
+      setSelectedTransaction(null)
     },
   })
 
   // Columns
-  const columns: ColumnDef<MockTransaction>[] = [
+  const columns: ColumnDef<Transaction>[] = [
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <SortableHeader column={column} title="Invoice" />,
@@ -453,22 +559,23 @@ export default function TransactionsPage() {
       ),
     },
     {
-      accessorKey: 'customer',
+      accessorKey: 'customerName',
       header: ({ column }) => <SortableHeader column={column} title="Customer" />,
       cell: ({ row }) => {
-        const customer = row.original.customer
+        const customerCode = row.original.customerCode
+        const customerName = row.original.customerName
         return (
           <div>
-            <p className="font-medium">{customer?.name}</p>
-            <p className="text-xs text-muted-foreground">{customer?.code}</p>
+            <p className="font-medium">{customerName}</p>
+            <p className="text-xs text-muted-foreground">{customerCode}</p>
           </div>
         )
       },
     },
     {
-      accessorKey: 'total',
+      accessorKey: 'grandTotal',
       header: 'Total',
-      cell: ({ row }) => formatCurrency(row.getValue('total')),
+      cell: ({ row }) => formatCurrency(row.getValue('grandTotal')),
     },
     {
       accessorKey: 'paidAmount',
@@ -500,9 +607,9 @@ export default function TransactionsPage() {
       },
     },
     {
-      accessorKey: 'createdAt',
+      accessorKey: 'invoiceDate',
       header: 'Date',
-      cell: ({ row }) => formatDateTime(row.getValue('createdAt')),
+      cell: ({ row }) => formatDateTime(row.getValue('invoiceDate')),
     },
     {
       id: 'actions',
@@ -521,14 +628,6 @@ export default function TransactionsPage() {
                 },
               },
               {
-                label: 'Edit',
-                icon: <Pencil className="h-4 w-4" />,
-                onClick: () => {
-                  setSelectedTransaction(tx)
-                  setOpenDialog(true)
-                },
-              },
-              {
                 label: 'Update Payment',
                 icon: <CreditCard className="h-4 w-4" />,
                 onClick: () => {
@@ -543,15 +642,6 @@ export default function TransactionsPage() {
                   // TODO: Print invoice
                 },
               },
-              {
-                label: 'Delete',
-                icon: <Trash2 className="h-4 w-4" />,
-                destructive: true,
-                onClick: () => {
-                  setSelectedTransaction(tx)
-                  setDeleteDialog(true)
-                },
-              },
             ]}
           />
         )
@@ -560,12 +650,16 @@ export default function TransactionsPage() {
   ]
 
   const handleSubmit = (data: TransactionFormData) => {
+    createMutation.mutate(data)
+  }
+
+  const handlePaymentUpdate = (data: PaymentUpdateFormData) => {
     if (selectedTransaction) {
-      updateMutation.mutate({ id: selectedTransaction.id, data })
-    } else {
-      createMutation.mutate(data)
+      updatePaymentMutation.mutate({ id: selectedTransaction.id, data })
     }
   }
+
+  const isLoading = transactionsLoading || customersLoading || productsLoading
 
   if (isLoading) {
     return <LoadingScreen />
@@ -603,7 +697,7 @@ export default function TransactionsPage() {
           taxRateSetting={taxRateSetting}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
-          loading={createMutation.isPending || updateMutation.isPending}
+          loading={createMutation.isPending}
         />
       </ModalForm>
 
@@ -614,31 +708,35 @@ export default function TransactionsPage() {
         title="Transaction Details"
         maxWidth="lg"
       >
-        {selectedTransaction && (
+        {detailedTransaction && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Invoice Number</p>
-                <p className="font-medium">{selectedTransaction.invoiceNumber}</p>
+                <p className="font-medium">{detailedTransaction.invoiceNumber}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Customer</p>
-                <p className="font-medium">{selectedTransaction.customer?.name}</p>
+                <p className="font-medium">{detailedTransaction.customerName}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Date</p>
-                <p className="font-medium">{formatDateTime(selectedTransaction.createdAt)}</p>
+                <p className="font-medium">{formatDateTime(detailedTransaction.invoiceDate)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Sales</p>
+                <p className="font-medium">{detailedTransaction.salesName}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Delivery Status</p>
-                <Badge className={DELIVERY_STATUS_COLORS[selectedTransaction.deliveryStatus] || 'bg-gray-100 text-gray-800'}>
-                  {DELIVERY_STATUS_LABELS[selectedTransaction.deliveryStatus] || selectedTransaction.deliveryStatus}
+                <Badge className={DELIVERY_STATUS_COLORS[detailedTransaction.deliveryStatus] || 'bg-gray-100 text-gray-800'}>
+                  {DELIVERY_STATUS_LABELS[detailedTransaction.deliveryStatus] || detailedTransaction.deliveryStatus}
                 </Badge>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Payment Status</p>
-                <Badge className={PAYMENT_STATUS_COLORS[selectedTransaction.paymentStatus]}>
-                  {PAYMENT_STATUS_LABELS[selectedTransaction.paymentStatus]}
+                <Badge className={PAYMENT_STATUS_COLORS[detailedTransaction.paymentStatus]}>
+                  {PAYMENT_STATUS_LABELS[detailedTransaction.paymentStatus]}
                 </Badge>
               </div>
             </div>
@@ -648,15 +746,15 @@ export default function TransactionsPage() {
             <div>
               <p className="font-medium mb-2">Items</p>
               <div className="border rounded-lg divide-y">
-                {selectedTransaction.items.map((item, index) => (
+                {detailedTransaction.items?.map((item, index) => (
                   <div key={index} className="flex justify-between p-3">
                     <div>
-                      <p className="font-medium">{item.product?.name}</p>
+                      <p className="font-medium">{item.productName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.quantity} x {formatCurrency(item.unitPrice)}
+                        {item.qtyOrderUnit} {item.unitName} x {formatCurrency(item.pricePerUnit)}
                       </p>
                     </div>
-                    <p className="font-medium">{formatCurrency(item.total)}</p>
+                    <p className="font-medium">{formatCurrency(item.subtotal)}</p>
                   </div>
                 ))}
               </div>
@@ -665,38 +763,48 @@ export default function TransactionsPage() {
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>{formatCurrency(selectedTransaction.subtotal)}</span>
+                <span>{formatCurrency(detailedTransaction.subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Tax</span>
-                <span>{formatCurrency(selectedTransaction.taxAmount)}</span>
+                <span>{formatCurrency(detailedTransaction.taxAmount)}</span>
               </div>
-              {selectedTransaction.discount > 0 && (
+              {detailedTransaction.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount</span>
-                  <span>-{formatCurrency(selectedTransaction.discount)}</span>
+                  <span>-{formatCurrency(detailedTransaction.discountAmount)}</span>
                 </div>
               )}
               <Separator />
               <div className="flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span>{formatCurrency(selectedTransaction.total)}</span>
+                <span>{formatCurrency(detailedTransaction.grandTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Paid</span>
-                <span className="text-green-600">{formatCurrency(selectedTransaction.paidAmount)}</span>
+                <span className="text-green-600">{formatCurrency(detailedTransaction.paidAmount)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Remaining</span>
-                <span className={selectedTransaction.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                  {formatCurrency(selectedTransaction.remainingAmount)}
+                <span className={detailedTransaction.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                  {formatCurrency(detailedTransaction.remainingAmount)}
                 </span>
               </div>
             </div>
 
+            {detailedTransaction.notes && (
+              <div>
+                <p className="text-sm text-muted-foreground">Notes</p>
+                <p className="text-sm">{detailedTransaction.notes}</p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setViewDialog(false)}>Close</Button>
-              <Button onClick={() => { setViewDialog(false); setSelectedTransaction(selectedTransaction); setOpenDialog(true); }}>
+              <Button onClick={() => { 
+                setViewDialog(false); 
+                setOpenDialog(true); 
+              }}>
                 Edit Transaction
               </Button>
             </div>
@@ -724,42 +832,13 @@ export default function TransactionsPage() {
         maxWidth="sm"
       >
         {selectedTransaction && (
-          <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="flex justify-between">
-                <span>Total Amount</span>
-                <span className="font-bold">{formatCurrency(selectedTransaction.total)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Paid Amount</span>
-                <span className="text-green-600">{formatCurrency(selectedTransaction.paidAmount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Remaining</span>
-                <span className="text-red-600 font-bold">{formatCurrency(selectedTransaction.remainingAmount)}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Additional Payment</label>
-              <input
-                type="number"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Enter amount"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Payment Method</label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                {paymentMethods.map((method) => (
-                  <option key={method} value={method}>{method}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setPaymentDialog(false)}>Cancel</Button>
-              <Button onClick={() => setPaymentDialog(false)}>Update Payment</Button>
-            </div>
-          </div>
+          <PaymentUpdateForm
+            transaction={selectedTransaction}
+            paymentMethods={paymentMethods}
+            onSubmit={handlePaymentUpdate}
+            onCancel={() => setPaymentDialog(false)}
+            loading={updatePaymentMutation.isPending}
+          />
         )}
       </ModalForm>
     </div>

@@ -18,7 +18,6 @@ import {
   Users, 
   Save,
   Plus,
-  Trash2,
   Upload,
   Loader2,
   X
@@ -29,6 +28,7 @@ import { useIsAdmin } from '@/stores/auth-store'
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS } from '@/lib/constants'
 import { toast } from 'sonner'
 import { NumberInput } from '@/components/ui/number-input'
+import { api } from '@/lib/api'
 
 // ============ Types ============
 interface CompanySettings {
@@ -58,6 +58,28 @@ interface CategorySettings {
 interface SalesSettings {
   salesNames: string[]
   paymentMethods: string[]
+}
+
+// ============ Config Type (from API) ============
+interface Config {
+  APP_NAME?: string
+  APP_VERSION?: string
+  COMPANY_NAME?: string
+  COMPANY_ADDRESS?: string
+  COMPANY_PHONE?: string
+  COMPANY_EMAIL?: string
+  LOGO_URL?: string
+  BANNER_URL?: string
+  TAX_RATE?: string
+  INVOICE_PREFIX?: string
+  DELIVERY_PREFIX?: string
+  PRODUCT_CATEGORIES?: string[]
+  PRODUCT_UNITS?: string[]
+  SALES_NAMES?: string[]
+  PAYMENT_METHODS?: string[]
+  VEHICLE_TYPES?: string[]
+  USER_ROLES?: string[]
+  [key: string]: unknown
 }
 
 // ============ Default Values ============
@@ -90,6 +112,48 @@ const defaultSalesSettings: SalesSettings = {
   paymentMethods: DEFAULT_PAYMENT_METHODS,
 }
 
+// ============ Helper Functions ============
+function configToCompanySettings(config: Config | undefined): CompanySettings {
+  if (!config) return defaultCompanySettings
+  return {
+    appName: config.APP_NAME || defaultCompanySettings.appName,
+    companyName: config.COMPANY_NAME || defaultCompanySettings.companyName,
+    logo: config.LOGO_URL || defaultCompanySettings.logo,
+    banner: config.BANNER_URL || defaultCompanySettings.banner,
+    address: config.COMPANY_ADDRESS || defaultCompanySettings.address,
+    phone: config.COMPANY_PHONE || defaultCompanySettings.phone,
+    email: config.COMPANY_EMAIL || defaultCompanySettings.email,
+    website: (config.WEBSITE as string) || defaultCompanySettings.website,
+    taxRate: config.TAX_RATE ? parseFloat(String(config.TAX_RATE)) : defaultCompanySettings.taxRate,
+  }
+}
+
+function configToInvoiceSettings(config: Config | undefined): InvoiceSettings {
+  if (!config) return defaultInvoiceSettings
+  return {
+    invoicePrefix: config.INVOICE_PREFIX || defaultInvoiceSettings.invoicePrefix,
+    invoiceStartingNumber: (config.INVOICE_STARTING_NUMBER as number) || defaultInvoiceSettings.invoiceStartingNumber,
+    deliveryNotePrefix: config.DELIVERY_PREFIX || defaultInvoiceSettings.deliveryNotePrefix,
+    deliveryNoteStartingNumber: (config.DELIVERY_STARTING_NUMBER as number) || defaultInvoiceSettings.deliveryNoteStartingNumber,
+  }
+}
+
+function configToCategorySettings(config: Config | undefined): CategorySettings {
+  if (!config) return defaultCategorySettings
+  return {
+    categories: config.PRODUCT_CATEGORIES || defaultCategorySettings.categories,
+    units: config.PRODUCT_UNITS || defaultCategorySettings.units,
+  }
+}
+
+function configToSalesSettings(config: Config | undefined): SalesSettings {
+  if (!config) return defaultSalesSettings
+  return {
+    salesNames: config.SALES_NAMES || defaultSalesSettings.salesNames,
+    paymentMethods: config.PAYMENT_METHODS || defaultSalesSettings.paymentMethods,
+  }
+}
+
 // ============ Settings Page ============
 export default function SettingsPage() {
   const queryClient = useQueryClient()
@@ -105,18 +169,26 @@ export default function SettingsPage() {
     sales: false,
   })
   
-  // Local state for each section
-  const [companySettings, setCompanySettings] = React.useState<CompanySettings>(
-    (appConfig.companySettings as CompanySettings) || defaultCompanySettings
+  // Fetch config from backend
+  const { data: configResponse, isLoading: isLoadingConfig } = useQuery({
+    queryKey: ['config'],
+    queryFn: () => api.getAllConfig(),
+  })
+
+  const configData = configResponse?.success ? (configResponse.data as Config) : undefined
+
+  // Local state for each section - initialized from API config or defaults
+  const [companySettings, setCompanySettings] = React.useState<CompanySettings>(() => 
+    configToCompanySettings(configData)
   )
-  const [invoiceSettings, setInvoiceSettings] = React.useState<InvoiceSettings>(
-    (appConfig.invoiceSettings as InvoiceSettings) || defaultInvoiceSettings
+  const [invoiceSettings, setInvoiceSettings] = React.useState<InvoiceSettings>(() => 
+    configToInvoiceSettings(configData)
   )
-  const [categorySettings, setCategorySettings] = React.useState<CategorySettings>(
-    (appConfig.categorySettings as CategorySettings) || defaultCategorySettings
+  const [categorySettings, setCategorySettings] = React.useState<CategorySettings>(() => 
+    configToCategorySettings(configData)
   )
-  const [salesSettings, setSalesSettings] = React.useState<SalesSettings>(
-    (appConfig.salesSettings as SalesSettings) || defaultSalesSettings
+  const [salesSettings, setSalesSettings] = React.useState<SalesSettings>(() => 
+    configToSalesSettings(configData)
   )
   
   // Input states
@@ -125,53 +197,112 @@ export default function SettingsPage() {
   const [newSalesName, setNewSalesName] = React.useState('')
   const [newPaymentMethod, setNewPaymentMethod] = React.useState('')
 
+  // Update local state when config data loads
+  React.useEffect(() => {
+    if (configData) {
+      setCompanySettings(configToCompanySettings(configData))
+      setInvoiceSettings(configToInvoiceSettings(configData))
+      setCategorySettings(configToCategorySettings(configData))
+      setSalesSettings(configToSalesSettings(configData))
+    }
+  }, [configData])
+
   React.useEffect(() => {
     setPageTitle('Pengaturan')
     setBreadcrumbs([{ title: 'Pengaturan' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Save mutations for each section
+  // Save mutations for each section - now calls backend API
   const saveCompanyMutation = useMutation({
     mutationFn: async (data: CompanySettings) => {
+      // First update local store for immediate UI feedback
       setAppConfig({ ...appConfig, companySettings: data })
-      return { success: true }
+      // Then save to backend
+      return api.updateConfig({
+        APP_NAME: data.appName,
+        COMPANY_NAME: data.companyName,
+        COMPANY_ADDRESS: data.address,
+        COMPANY_PHONE: data.phone,
+        COMPANY_EMAIL: data.email,
+        LOGO_URL: data.logo,
+        BANNER_URL: data.banner,
+        TAX_RATE: String(data.taxRate),
+        WEBSITE: data.website,
+      })
     },
     onSuccess: () => {
       toast.success('Pengaturan perusahaan berhasil disimpan')
       setHasUnsavedChanges(prev => ({ ...prev, company: false }))
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
+    onError: (error) => {
+      toast.error('Gagal menyimpan pengaturan perusahaan')
+      console.error('Save company settings error:', error)
     },
   })
 
   const saveInvoiceMutation = useMutation({
     mutationFn: async (data: InvoiceSettings) => {
+      // First update local store for immediate UI feedback
       setAppConfig({ ...appConfig, invoiceSettings: data })
-      return { success: true }
+      // Then save to backend
+      return api.updateConfig({
+        INVOICE_PREFIX: data.invoicePrefix,
+        DELIVERY_PREFIX: data.deliveryNotePrefix,
+        INVOICE_STARTING_NUMBER: data.invoiceStartingNumber,
+        DELIVERY_STARTING_NUMBER: data.deliveryNoteStartingNumber,
+      })
     },
     onSuccess: () => {
       toast.success('Pengaturan invoice berhasil disimpan')
       setHasUnsavedChanges(prev => ({ ...prev, invoice: false }))
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
+    onError: (error) => {
+      toast.error('Gagal menyimpan pengaturan invoice')
+      console.error('Save invoice settings error:', error)
     },
   })
 
   const saveCategoryMutation = useMutation({
     mutationFn: async (data: CategorySettings) => {
+      // First update local store for immediate UI feedback
       setAppConfig({ ...appConfig, categorySettings: data })
-      return { success: true }
+      // Then save to backend
+      return api.updateConfig({
+        PRODUCT_CATEGORIES: data.categories,
+        PRODUCT_UNITS: data.units,
+      })
     },
     onSuccess: () => {
       toast.success('Pengaturan kategori berhasil disimpan')
       setHasUnsavedChanges(prev => ({ ...prev, categories: false }))
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
+    onError: (error) => {
+      toast.error('Gagal menyimpan pengaturan kategori')
+      console.error('Save category settings error:', error)
     },
   })
 
   const saveSalesMutation = useMutation({
     mutationFn: async (data: SalesSettings) => {
+      // First update local store for immediate UI feedback
       setAppConfig({ ...appConfig, salesSettings: data })
-      return { success: true }
+      // Then save to backend
+      return api.updateConfig({
+        SALES_NAMES: data.salesNames,
+        PAYMENT_METHODS: data.paymentMethods,
+      })
     },
     onSuccess: () => {
       toast.success('Pengaturan sales berhasil disimpan')
       setHasUnsavedChanges(prev => ({ ...prev, sales: false }))
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
+    onError: (error) => {
+      toast.error('Gagal menyimpan pengaturan sales')
+      console.error('Save sales settings error:', error)
     },
   })
 
@@ -267,6 +398,11 @@ export default function SettingsPage() {
 
   const handleSaveSales = () => {
     saveSalesMutation.mutate(salesSettings)
+  }
+
+  // Show loading state
+  if (isLoadingConfig) {
+    return <LoadingScreen message="Memuat pengaturan..." />
   }
 
   if (!isAdmin) {

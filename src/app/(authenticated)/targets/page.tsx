@@ -3,105 +3,95 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Target, TrendingUp } from 'lucide-react'
+import { Plus, Target as TargetIcon, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
-import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen, StatsCard } from '@/components/shared'
+import { DataTable, SortableHeader } from '@/components/shared/data-table'
+import { PageHeader, ModalForm, LoadingScreen } from '@/components/shared'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
-import { TARGET_TYPE_LABELS, TARGET_PERIOD_LABELS } from '@/lib/constants'
+import { TARGET_TYPE_LABELS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
+import { api } from '@/lib/api'
 import type { Target } from '@/types'
-
-// ============ Mock Data ============
-const mockTargets: Target[] = [
-  { id: '1', name: 'Monthly Revenue Q1', type: 'revenue', period: 'monthly', year: 2024, month: 1, targetAmount: 500000000, achievedAmount: 423500000, achievementPercent: 84.7, isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-  { id: '2', name: 'Weekly Sales Week 1', type: 'quantity', period: 'weekly', year: 2024, month: 1, week: 1, targetAmount: 100, achievedAmount: 87, achievementPercent: 87, isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-  { id: '3', name: 'New Customers January', type: 'customer', period: 'monthly', year: 2024, month: 1, targetAmount: 20, achievedAmount: 15, achievementPercent: 75, isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-  { id: '4', name: 'Yearly Revenue 2024', type: 'revenue', period: 'yearly', year: 2024, targetAmount: 6000000000, achievedAmount: 485000000, achievementPercent: 8.1, isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-]
 
 // ============ Target Form Component ============
 interface TargetFormData {
-  name: string
-  type: string
-  period: string
   year: number
-  month?: number
-  week?: number
+  month: number
+  targetType: 'COMPANY' | 'SALES'
+  targetEntityId: string
+  targetEntityName: string
   targetAmount: number
-  salesName?: string
-  productId?: string
-  customerId?: string
-  isActive: boolean
+  targetQtyUnit: number
+  targetQtyKg: number
+  targetCustomerCount: number
+  notes: string
 }
 
-function TargetForm({ target, onSubmit, onCancel, loading }: {
-  target?: Target
+function TargetForm({ onSubmit, onCancel, loading, salesUsers }: {
   onSubmit: (data: TargetFormData) => void
   onCancel: () => void
   loading?: boolean
+  salesUsers: Array<{ id: string; fullName: string }>
 }) {
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth() + 1
+
   const [formData, setFormData] = React.useState<TargetFormData>({
-    name: target?.name || '',
-    type: target?.type || 'revenue',
-    period: target?.period || 'monthly',
-    year: target?.year || new Date().getFullYear(),
-    month: target?.month,
-    week: target?.week,
-    targetAmount: target?.targetAmount || 0,
-    isActive: target?.isActive ?? true,
+    year: currentYear,
+    month: currentMonth,
+    targetType: 'COMPANY',
+    targetEntityId: '',
+    targetEntityName: '',
+    targetAmount: 0,
+    targetQtyUnit: 0,
+    targetQtyKg: 0,
+    targetCustomerCount: 0,
+    notes: '',
   })
+
+  const handleTargetTypeChange = (value: 'COMPANY' | 'SALES') => {
+    if (value === 'COMPANY') {
+      setFormData({
+        ...formData,
+        targetType: value,
+        targetEntityId: '',
+        targetEntityName: '',
+      })
+    } else {
+      setFormData({
+        ...formData,
+        targetType: value,
+      })
+    }
+  }
+
+  const handleSalesChange = (salesId: string) => {
+    const sales = salesUsers.find(s => s.id === salesId)
+    setFormData({
+      ...formData,
+      targetEntityId: salesId,
+      targetEntityName: sales?.fullName || '',
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validation
+    if (formData.targetType === 'SALES' && !formData.targetEntityId) {
+      alert('Please select a sales person')
+      return
+    }
+    
     onSubmit(formData)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Name *</label>
-        <input
-          type="text"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-        />
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Type *</label>
-          <select
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-          >
-            {Object.entries(TARGET_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Period *</label>
-          <select
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.period}
-            onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-          >
-            {Object.entries(TARGET_PERIOD_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Year *</label>
           <NumberInput
@@ -111,42 +101,56 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
             required
           />
         </div>
-        {(formData.period === 'monthly' || formData.period === 'weekly') && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Month</label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={formData.month || ''}
-              onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) || undefined })}
-            >
-              <option value="">Select Month</option>
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>{new Date(2024, i).toLocaleString('default', { month: 'long' })}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {formData.period === 'weekly' && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Week</label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={formData.week || ''}
-              onChange={(e) => setFormData({ ...formData, week: Number(e.target.value) || undefined })}
-            >
-              <option value="">Select Week</option>
-              {Array.from({ length: 52 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>Week {i + 1}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Month *</label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.month}
+            onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) })}
+            required
+          >
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {new Date(2024, i).toLocaleString('default', { month: 'long' })}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">
-          Target Amount {formData.type === 'revenue' ? '(Rp)' : '(Units)'} *
-        </label>
+        <label className="text-sm font-medium">Target Type *</label>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.targetType}
+          onChange={(e) => handleTargetTypeChange(e.target.value as 'COMPANY' | 'SALES')}
+        >
+          <option value="COMPANY">{TARGET_TYPE_LABELS.COMPANY}</option>
+          <option value="SALES">{TARGET_TYPE_LABELS.SALES}</option>
+        </select>
+      </div>
+
+      {formData.targetType === 'SALES' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Sales Person *</label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.targetEntityId}
+            onChange={(e) => handleSalesChange(e.target.value)}
+            required
+          >
+            <option value="">Select Sales Person</option>
+            {salesUsers.map((sales) => (
+              <option key={sales.id} value={sales.id}>
+                {sales.fullName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Target Amount (Rp) *</label>
         <NumberInput
           value={formData.targetAmount}
           onChange={(value) => setFormData({ ...formData, targetAmount: value })}
@@ -155,21 +159,48 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
         />
       </div>
 
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="isActive"
-          checked={formData.isActive}
-          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-          className="h-4 w-4"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Target Qty (Units)</label>
+          <NumberInput
+            value={formData.targetQtyUnit}
+            onChange={(value) => setFormData({ ...formData, targetQtyUnit: value })}
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Target Qty (Kg)</label>
+          <NumberInput
+            value={formData.targetQtyKg}
+            onChange={(value) => setFormData({ ...formData, targetQtyKg: value })}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Target Customer Count</label>
+        <NumberInput
+          value={formData.targetCustomerCount}
+          onChange={(value) => setFormData({ ...formData, targetCustomerCount: value })}
+          placeholder="0"
         />
-        <label htmlFor="isActive" className="text-sm font-medium">Active</label>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Notes</label>
+        <textarea
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Optional notes..."
+        />
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Saving...' : target ? 'Update' : 'Create'}
+          {loading ? 'Creating...' : 'Create Target'}
         </Button>
       </div>
     </form>
@@ -181,98 +212,79 @@ export default function TargetsPage() {
   const queryClient = useQueryClient()
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
   const [openDialog, setOpenDialog] = React.useState(false)
-  const [selectedTarget, setSelectedTarget] = React.useState<Target | null>(null)
-  const [deleteDialog, setDeleteDialog] = React.useState(false)
 
   React.useEffect(() => {
     setPageTitle('Targets')
     setBreadcrumbs([{ title: 'Targets' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Fetch targets
-  const { data: targets, isLoading } = useQuery({
+  // Fetch targets from API
+  const { data: targetsResponse, isLoading: isLoadingTargets } = useQuery({
     queryKey: ['targets'],
-    queryFn: async () => mockTargets,
+    queryFn: () => api.getTargets(),
   })
 
-  // Mutations
+  // Fetch sales users for the dropdown
+  const { data: usersResponse } = useQuery({
+    queryKey: ['users', 'sales'],
+    queryFn: () => api.getUsers({ role: 'Sales', isActive: true, pageSize: 100 }),
+  })
+
+  const targets = (targetsResponse?.data as Target[] | undefined) || []
+  const salesUsers = ((usersResponse?.data as Array<{ id: string; fullName: string }> | undefined) || []).map((u) => ({
+    id: u.id,
+    fullName: u.fullName,
+  }))
+
+  // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: TargetFormData) => ({ success: true }),
+    mutationFn: (data: TargetFormData) => api.createTarget(data as unknown as Record<string, unknown>),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['targets'] })
       setOpenDialog(false)
     },
   })
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<TargetFormData> }) => ({ success: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['targets'] })
-      setOpenDialog(false)
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => ({ success: true }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['targets'] })
-      setDeleteDialog(false)
-    },
-  })
-
-  // Summary stats
-  const totalTarget = targets?.reduce((sum, t) => sum + t.targetAmount, 0) || 0
-  const totalAchieved = targets?.reduce((sum, t) => sum + t.achievedAmount, 0) || 0
+  // Summary stats - calculate from actual targets
+  const totalTarget = targets.reduce((sum: number, t: Target) => sum + t.targetAmount, 0)
+  const totalAchieved = targets.reduce((sum: number, t: Target) => sum + t.achievedAmount, 0)
   const overallPercent = totalTarget > 0 ? (totalAchieved / totalTarget) * 100 : 0
 
   // Columns
   const columns: ColumnDef<Target>[] = [
     {
-      accessorKey: 'name',
-      header: ({ column }) => <SortableHeader column={column} title="Name" />,
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium">{row.getValue('name')}</p>
-          <p className="text-xs text-muted-foreground">
-            {TARGET_TYPE_LABELS[row.original.type]}
-          </p>
-        </div>
-      ),
+      accessorKey: 'targetType',
+      header: ({ column }) => <SortableHeader column={column} title="Type" />,
+      cell: ({ row }) => {
+        const type = row.getValue('targetType') as string
+        return (
+          <div>
+            <p className="font-medium">{TARGET_TYPE_LABELS[type] || type}</p>
+            {row.original.targetType === 'SALES' && (
+              <p className="text-xs text-muted-foreground">{row.original.targetEntityName}</p>
+            )}
+          </div>
+        )
+      },
     },
     {
-      accessorKey: 'period',
+      accessorKey: 'year',
       header: 'Period',
       cell: ({ row }) => {
-        const period = row.getValue('period') as string
         const target = row.original
-        let periodText = TARGET_PERIOD_LABELS[period]
-        if (target.month) {
-          periodText += ` ${new Date(2024, target.month - 1).toLocaleString('default', { month: 'short' })}`
-        }
-        if (target.week) {
-          periodText += ` W${target.week}`
-        }
-        periodText += ` ${target.year}`
-        return <span>{periodText}</span>
+        const monthName = new Date(target.year, target.month - 1).toLocaleString('default', { month: 'long' })
+        return <span>{monthName} {target.year}</span>
       },
     },
     {
       accessorKey: 'targetAmount',
-      header: 'Target',
-      cell: ({ row }) => {
-        const amount = row.getValue('targetAmount') as number
-        const type = row.original.type
-        return type === 'revenue' ? formatCurrency(amount) : amount.toLocaleString()
-      },
+      header: 'Target Amount',
+      cell: ({ row }) => formatCurrency(row.getValue('targetAmount')),
     },
     {
       accessorKey: 'achievedAmount',
       header: 'Achieved',
-      cell: ({ row }) => {
-        const amount = row.getValue('achievedAmount') as number
-        const type = row.original.type
-        return type === 'revenue' ? formatCurrency(amount) : amount.toLocaleString()
-      },
+      cell: ({ row }) => formatCurrency(row.getValue('achievedAmount')),
     },
     {
       accessorKey: 'achievementPercent',
@@ -284,69 +296,50 @@ export default function TargetsPage() {
           <div className="flex items-center gap-2 w-32">
             <Progress value={Math.min(percent, 100)} className="h-2 flex-1" />
             <span className={`text-xs font-medium ${isAchieved ? 'text-green-600' : percent >= 75 ? 'text-yellow-600' : 'text-red-600'}`}>
-              {percent.toFixed(0)}%
+              {percent.toFixed(1)}%
             </span>
           </div>
         )
       },
     },
     {
-      accessorKey: 'isActive',
-      header: 'Status',
-      cell: ({ row }) => (
-        <Badge variant={row.getValue('isActive') ? 'default' : 'secondary'}>
-          {row.getValue('isActive') ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
-    },
-    {
-      id: 'actions',
+      id: 'details',
+      header: 'Details',
       cell: ({ row }) => {
         const target = row.original
+        const hasDetails = target.targetQtyUnit > 0 || target.targetQtyKg > 0 || target.targetCustomerCount > 0
+        
+        if (!hasDetails) return <span className="text-muted-foreground">-</span>
+        
         return (
-          <RowActions
-            row={target}
-            actions={[
-              {
-                label: 'Edit',
-                icon: <Pencil className="h-4 w-4" />,
-                onClick: () => {
-                  setSelectedTarget(target)
-                  setOpenDialog(true)
-                },
-              },
-              {
-                label: 'Delete',
-                icon: <Trash2 className="h-4 w-4" />,
-                destructive: true,
-                onClick: () => {
-                  setSelectedTarget(target)
-                  setDeleteDialog(true)
-                },
-              },
-            ]}
-          />
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            {target.targetQtyUnit > 0 && (
+              <div>Units: {target.achievedQtyUnit} / {target.targetQtyUnit}</div>
+            )}
+            {target.targetQtyKg > 0 && (
+              <div>Kg: {target.achievedQtyKg} / {target.targetQtyKg}</div>
+            )}
+            {target.targetCustomerCount > 0 && (
+              <div>Customers: {target.achievedCustomerCount} / {target.targetCustomerCount}</div>
+            )}
+          </div>
         )
       },
     },
   ]
 
   const handleSubmit = (data: TargetFormData) => {
-    if (selectedTarget) {
-      updateMutation.mutate({ id: selectedTarget.id, data })
-    } else {
-      createMutation.mutate(data)
-    }
+    createMutation.mutate(data)
   }
 
-  if (isLoading) {
+  if (isLoadingTargets) {
     return <LoadingScreen />
   }
 
   return (
     <div className="space-y-6">
       <PageHeader title="Targets" description="Set and track sales targets">
-        <Button onClick={() => { setSelectedTarget(null); setOpenDialog(true) }}>
+        <Button onClick={() => setOpenDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Target
         </Button>
@@ -357,12 +350,15 @@ export default function TargetsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Target className="h-4 w-4" />
+              <TargetIcon className="h-4 w-4" />
               Total Target
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalTarget)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {targets.length} target{targets.length !== 1 ? 's' : ''} set
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -374,6 +370,9 @@ export default function TargetsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalAchieved)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatPercentage(overallPercent)} of target
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -389,35 +388,24 @@ export default function TargetsPage() {
 
       <DataTable
         columns={columns}
-        data={targets || []}
-        searchKey="name"
+        data={targets}
+        searchKey="targetEntityName"
         searchPlaceholder="Search targets..."
       />
 
       <ModalForm
         open={openDialog}
         onOpenChange={setOpenDialog}
-        title={selectedTarget ? 'Edit Target' : 'Add Target'}
+        title="Add Target"
         maxWidth="lg"
       >
         <TargetForm
-          target={selectedTarget || undefined}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
-          loading={createMutation.isPending || updateMutation.isPending}
+          loading={createMutation.isPending}
+          salesUsers={salesUsers}
         />
       </ModalForm>
-
-      <ConfirmDialog
-        open={deleteDialog}
-        onOpenChange={setDeleteDialog}
-        title="Delete Target"
-        description={`Are you sure you want to delete "${selectedTarget?.name}"? This action cannot be undone.`}
-        variant="destructive"
-        confirmText="Delete"
-        onConfirm={() => selectedTarget && deleteMutation.mutate(selectedTarget.id)}
-        loading={deleteMutation.isPending}
-      />
     </div>
   )
 }
