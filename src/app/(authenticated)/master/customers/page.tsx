@@ -57,8 +57,8 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="col-span-1 sm:col-span-2 space-y-2">
           <label className="text-sm font-medium">Name *</label>
           <input
             type="text"
@@ -98,7 +98,7 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">City</label>
           <input

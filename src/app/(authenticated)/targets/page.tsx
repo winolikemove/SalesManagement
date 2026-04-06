@@ -73,7 +73,7 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Type *</label>
           <select
@@ -100,7 +100,7 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Year *</label>
           <input
@@ -357,7 +357,7 @@ export default function TargetsPage() {
       </PageHeader>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">

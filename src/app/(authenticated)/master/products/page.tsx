@@ -63,7 +63,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Code *</label>
           <input
@@ -86,7 +86,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Category *</label>
           <select
@@ -122,7 +122,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Base Price (Rp) *</label>
           <input
@@ -147,7 +147,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Stock *</label>
           <input

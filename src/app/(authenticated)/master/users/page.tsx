@@ -59,7 +59,7 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Username *</label>
           <input
@@ -83,7 +83,7 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Email *</label>
           <input
@@ -105,7 +105,7 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Role *</label>
           <select
@@ -338,7 +338,7 @@ export default function UsersPage() {
       <DataTable
         columns={columns}
         data={users || []}
-        searchKey="name"
+        searchKey="fullName"
         searchPlaceholder="Search users..."
       />
 

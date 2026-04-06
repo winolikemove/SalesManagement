@@ -149,8 +149,8 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 items-center gap-3 flex-wrap">
           {/* Search */}
           {searchKey && (
             <Input
@@ -159,7 +159,7 @@ export function DataTable<TData, TValue>({
               onChange={(event) =>
                 table.getColumn(searchKey)?.setFilterValue(event.target.value)
               }
-              className="max-w-sm"
+              className="w-full sm:max-w-sm"
             />
           )}
 
@@ -171,7 +171,7 @@ export function DataTable<TData, TValue>({
         {enableColumnVisibility && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
                 Columns <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -197,8 +197,8 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[600px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -246,7 +246,7 @@ export function DataTable<TData, TValue>({
 
       {/* Pagination */}
       {enablePagination && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex flex-col gap-4 px-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {enableRowSelection && (
               <>
@@ -256,7 +256,7 @@ export function DataTable<TData, TValue>({
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Rows per page</span>
               <Select
@@ -278,7 +278,7 @@ export function DataTable<TData, TValue>({
               </Select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
               <span className="text-sm text-muted-foreground">
                 Page {table.getState().pagination.pageIndex + 1} of{' '}
                 {table.getPageCount()}
@@ -289,6 +289,7 @@ export function DataTable<TData, TValue>({
                   size="sm"
                   onClick={() => table.setPageIndex(0)}
                   disabled={!table.getCanPreviousPage()}
+                  className="h-8 px-2"
                 >
                   First
                 </Button>
@@ -297,14 +298,16 @@ export function DataTable<TData, TValue>({
                   size="sm"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
+                  className="h-8 px-2"
                 >
-                  Previous
+                  Prev
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
+                  className="h-8 px-2"
                 >
                   Next
                 </Button>
@@ -313,6 +316,7 @@ export function DataTable<TData, TValue>({
                   size="sm"
                   onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                   disabled={!table.getCanNextPage()}
+                  className="h-8 px-2"
                 >
                   Last
                 </Button>
