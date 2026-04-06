@@ -179,7 +179,7 @@ interface TransactionFormData {
   customerPhone: string
   salesName: string
   items: TransactionItemFormData[]
-  discount: number
+  discountPercent: number
   paymentMethod: string
   paidAmount: number
   notes: string
@@ -219,7 +219,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           kgName: i.kgName,
           discount: 0,
         })) || [],
-        discount: transaction.discountAmount,
+        discountPercent: 0,
         paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
         paidAmount: transaction.paidAmount,
         notes: transaction.notes,
@@ -233,7 +233,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
       customerPhone: '',
       salesName: salesNames[0] || '',
       items: [],
-      discount: 0,
+      discountPercent: 0,
       paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
       paidAmount: 0,
       notes: '',
@@ -243,7 +243,9 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
   const taxRate = taxRateSetting / 100
   const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount), 0)
   const taxAmount = subtotal * taxRate
-  const total = subtotal + taxAmount - formData.discount
+  const beforeDiscount = subtotal + taxAmount
+  const discountAmount = beforeDiscount * formData.discountPercent / 100
+  const total = beforeDiscount - discountAmount
   const remainingAmount = total - formData.paidAmount
 
   // Handle customer selection with auto-fill
@@ -680,13 +682,19 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           <span>{formatCurrency(taxAmount)}</span>
         </div>
         <div className="flex justify-between text-sm items-center">
-          <span>Diskon</span>
-          <NumberInput
-            className="w-32 h-8 text-right"
-            value={formData.discount}
-            onChange={(value) => setFormData({ ...formData, discount: value })}
-            min={0}
-          />
+          <div className="flex items-center gap-2">
+            <span>Diskon</span>
+            <NumberInput
+              className="w-16 h-8 text-right"
+              value={formData.discountPercent}
+              allowDecimal
+              onChange={(value) => setFormData({ ...formData, discountPercent: Math.min(value, 100) })}
+              min={0}
+              max={100}
+            />
+            <span className="text-muted-foreground">%</span>
+          </div>
+          <span className="text-red-600">-{formatCurrency(discountAmount)}</span>
         </div>
         <Separator />
         <div className="flex justify-between font-bold text-lg">
@@ -1009,7 +1017,9 @@ export default function TransactionsPage() {
     mutationFn: async (data: TransactionFormData) => {
       const subtotal = data.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount), 0)
       const taxAmount = subtotal * (taxRateSetting / 100)
-      const grandTotal = subtotal + taxAmount - data.discount
+      const beforeDiscount = subtotal + taxAmount
+      const discountAmount = beforeDiscount * data.discountPercent / 100
+      const grandTotal = beforeDiscount - discountAmount
 
       const response = await api.createTransaction({
         customerId: data.customerId,
@@ -1017,7 +1027,7 @@ export default function TransactionsPage() {
         salesName: data.salesName,
         subtotal,
         taxAmount,
-        discountAmount: data.discount,
+        discountAmount,
         grandTotal,
         notes: data.notes,
         items: data.items.map(item => ({
