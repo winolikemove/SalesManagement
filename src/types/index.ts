@@ -323,6 +323,17 @@ export interface Target {
 
 // ============ Dashboard Types ============
 export interface DashboardStats {
+  // Summary Stats
+  todaySales: number
+  monthSales: number
+  yearSales: number
+  todayTransactions: number
+  pendingPayments: number
+  pendingDeliveries: number
+  lowStockProducts: number
+  activeCustomers: number
+  
+  // Detailed Stats
   dailySummary: {
     totalInvoices: number
     totalCustomers: number
@@ -361,6 +372,48 @@ export interface DashboardStats {
     totalAmount: number
     invoiceCount: number
   }>
+}
+
+// ============ Sales Trend Type ============
+export interface SalesTrend {
+  date: string
+  sales: number
+  transactions: number
+}
+
+// ============ Top Product Type ============
+export interface TopProduct {
+  product: {
+    id: string
+    code: string
+    name: string
+    category: string
+    unit: string
+    basePrice: number
+    sellingPrice: number
+    stock: number
+    minStock: number
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+  }
+  quantity: number
+  total: number
+}
+
+// ============ Top Customer Type ============
+export interface TopCustomer {
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone: string
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+  }
+  transactions: number
+  total: number
 }
 
 // ============ Navigation Types ============

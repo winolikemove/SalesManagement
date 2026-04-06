@@ -18,11 +18,11 @@ import type { User } from '@/types'
 
 // ============ Mock Data ============
 const mockUsers: User[] = [
-  { id: '1', username: 'admin', name: 'Admin User', email: 'admin@transman.com', role: 'admin', phone: '081234567890', isActive: true, createdAt: '2024-01-01T10:00:00', updatedAt: '2024-01-01T10:00:00' },
-  { id: '2', username: 'manager', name: 'Manager User', email: 'manager@transman.com', role: 'manager', phone: '081234567891', isActive: true, createdAt: '2024-01-02T10:00:00', updatedAt: '2024-01-02T10:00:00' },
-  { id: '3', username: 'sales1', name: 'Sales One', email: 'sales1@transman.com', role: 'sales', phone: '081234567892', isActive: true, createdAt: '2024-01-03T10:00:00', updatedAt: '2024-01-03T10:00:00' },
-  { id: '4', username: 'driver1', name: 'Driver One', email: 'driver1@transman.com', role: 'driver', phone: '081234567893', isActive: true, createdAt: '2024-01-04T10:00:00', updatedAt: '2024-01-04T10:00:00' },
-  { id: '5', username: 'cashier1', name: 'Cashier One', email: 'cashier1@transman.com', role: 'cashier', phone: '081234567894', isActive: false, createdAt: '2024-01-05T10:00:00', updatedAt: '2024-01-05T10:00:00' },
+  { id: '1', username: 'admin', fullName: 'Admin User', email: 'admin@transman.com', role: 'SuperAdmin', phone: '081234567890', division: 'IT', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-01T10:00:00' },
+  { id: '2', username: 'manager', fullName: 'Manager User', email: 'manager@transman.com', role: 'Manager', phone: '081234567891', division: 'Management', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-02T10:00:00' },
+  { id: '3', username: 'sales1', fullName: 'Sales One', email: 'sales1@transman.com', role: 'Sales', phone: '081234567892', division: 'Sales', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-03T10:00:00' },
+  { id: '4', username: 'driver1', fullName: 'Driver One', email: 'driver1@transman.com', role: 'Driver', phone: '081234567893', division: 'Logistics', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-04T10:00:00' },
+  { id: '5', username: 'cashier1', fullName: 'Cashier One', email: 'cashier1@transman.com', role: 'Cashier', phone: '081234567894', division: 'Finance', photoUrl: '', permissions: [], isActive: false, createdAt: '2024-01-05T10:00:00' },
 ]
 
 // ============ User Form Component ============
@@ -44,9 +44,9 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
 }) {
   const [formData, setFormData] = React.useState<UserFormData>({
     username: user?.username || '',
-    name: user?.name || '',
+    name: user?.fullName || '',
     email: user?.email || '',
-    role: user?.role || 'sales',
+    role: user?.role || 'Sales',
     phone: user?.phone || '',
     password: '',
     isActive: user?.isActive ?? true,
@@ -218,20 +218,20 @@ export default function UsersPage() {
   // Columns
   const columns: ColumnDef<User>[] = [
     {
-      id: 'name',
-      accessorKey: 'name',
+      id: 'fullName',
+      accessorKey: 'fullName',
       header: ({ column }) => <SortableHeader column={column} title="Name" />,
       cell: ({ row }) => {
         const user = row.original
-        const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        const initials = user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.photo} />
+              <AvatarImage src={user.photoUrl} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{user.name}</p>
+              <p className="font-medium">{user.fullName}</p>
               <p className="text-xs text-muted-foreground">@{user.username}</p>
             </div>
           </div>
@@ -362,7 +362,7 @@ export default function UsersPage() {
         open={deleteDialog}
         onOpenChange={setDeleteDialog}
         title="Delete User"
-        description={`Are you sure you want to delete "${selectedUser?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${selectedUser?.fullName}"? This action cannot be undone.`}
         variant="destructive"
         confirmText="Delete"
         onConfirm={() => selectedUser && deleteMutation.mutate(selectedUser.id)}

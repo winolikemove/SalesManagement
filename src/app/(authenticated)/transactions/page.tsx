@@ -10,35 +10,88 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { api } from '@/lib/api'
 import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
-import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, TRANSACTION_STATUS_LABELS, TRANSACTION_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
+import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
-import type { Transaction, TransactionItem, Customer, Product } from '@/types'
 
 // ============ Mock Data ============
-const mockCustomers: Customer[] = [
-  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', phone: '0211234567', address: 'Jl. Sudirman No. 1, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', phone: '0217654321', address: 'Jl. Gatot Subroto No. 10, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', code: 'CUST003', name: 'UD DEF Store', phone: '0215551234', address: 'Jl. Hayam Wuruk No. 5, Jakarta', isActive: true, createdAt: '', updatedAt: '' },
+// Note: These mock data structures match the simplified UI needs
+// In production, these would come from the API with proper types
+
+interface MockCustomer {
+  id: string
+  code: string
+  name: string
+  phone: string
+  address: string
+  isActive: boolean
+}
+
+interface MockProduct {
+  id: string
+  code: string
+  name: string
+  category: string
+  unit: string
+  basePrice: number
+  sellingPrice: number
+  stock: number
+  minStock: number
+  isActive: boolean
+}
+
+interface MockTransactionItem {
+  id: string
+  transactionId: string
+  productId: string
+  product: MockProduct
+  quantity: number
+  unitPrice: number
+  discount: number
+  total: number
+}
+
+interface MockTransaction {
+  id: string
+  invoiceNumber: string
+  customerId: string
+  customer: MockCustomer
+  salesName: string
+  items: MockTransactionItem[]
+  subtotal: number
+  taxAmount: number
+  discount: number
+  total: number
+  paidAmount: number
+  remainingAmount: number
+  paymentStatus: 'PAID' | 'PARTIAL' | 'UNPAID'
+  paymentMethod: string
+  deliveryStatus: 'PENDING' | 'PROCESSING' | 'DELIVERED'
+  createdAt: string
+}
+
+const mockCustomers: MockCustomer[] = [
+  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', phone: '0211234567', address: 'Jl. Sudirman No. 1, Jakarta', isActive: true },
+  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', phone: '0217654321', address: 'Jl. Gatot Subroto No. 10, Jakarta', isActive: true },
+  { id: '3', code: 'CUST003', name: 'UD DEF Store', phone: '0215551234', address: 'Jl. Hayam Wuruk No. 5, Jakarta', isActive: true },
 ]
 
-const mockProducts: Product[] = [
-  { id: '1', code: 'PRD001', name: 'Laptop Dell XPS 15', category: 'Electronics', unit: 'pcs', basePrice: 15000000, sellingPrice: 18500000, stock: 25, minStock: 5, isActive: true, createdAt: '', updatedAt: '' },
-  { id: '2', code: 'PRD002', name: 'Office Chair Premium', category: 'Furniture', unit: 'pcs', basePrice: 2500000, sellingPrice: 3500000, stock: 15, minStock: 3, isActive: true, createdAt: '', updatedAt: '' },
-  { id: '3', code: 'PRD003', name: 'Printer Paper A4', category: 'Office Supplies', unit: 'pack', basePrice: 45000, sellingPrice: 65000, stock: 3, minStock: 20, isActive: true, createdAt: '', updatedAt: '' },
+const mockProducts: MockProduct[] = [
+  { id: '1', code: 'PRD001', name: 'Laptop Dell XPS 15', category: 'Electronics', unit: 'pcs', basePrice: 15000000, sellingPrice: 18500000, stock: 25, minStock: 5, isActive: true },
+  { id: '2', code: 'PRD002', name: 'Office Chair Premium', category: 'Furniture', unit: 'pcs', basePrice: 2500000, sellingPrice: 3500000, stock: 15, minStock: 3, isActive: true },
+  { id: '3', code: 'PRD003', name: 'Printer Paper A4', category: 'Office Supplies', unit: 'pack', basePrice: 45000, sellingPrice: 65000, stock: 3, minStock: 20, isActive: true },
 ]
 
-const mockTransactions: Transaction[] = [
-  { id: '1', invoiceNumber: 'INV-2024-0001', customerId: '1', customer: mockCustomers[0], salesName: 'Admin', items: [{ id: '1', transactionId: '1', productId: '1', product: mockProducts[0], quantity: 2, unitPrice: 18500000, discount: 0, total: 37000000 }], subtotal: 37000000, taxAmount: 3700000, discount: 0, total: 40700000, paidAmount: 40700000, remainingAmount: 0, paymentStatus: 'paid', paymentMethod: 'Bank Transfer', status: 'completed', createdAt: '2024-01-07T10:30:00', updatedAt: '' },
-  { id: '2', invoiceNumber: 'INV-2024-0002', customerId: '2', customer: mockCustomers[1], salesName: 'Admin', items: [{ id: '2', transactionId: '2', productId: '2', product: mockProducts[1], quantity: 5, unitPrice: 3500000, discount: 0, total: 17500000 }], subtotal: 17500000, taxAmount: 1750000, discount: 500000, total: 18750000, paidAmount: 10000000, remainingAmount: 8750000, paymentStatus: 'partial', paymentMethod: 'Cash', status: 'confirmed', createdAt: '2024-01-07T09:15:00', updatedAt: '' },
-  { id: '3', invoiceNumber: 'INV-2024-0003', customerId: '3', customer: mockCustomers[2], salesName: 'Sales 1', items: [{ id: '3', transactionId: '3', productId: '3', product: mockProducts[2], quantity: 100, unitPrice: 65000, discount: 0, total: 6500000 }], subtotal: 6500000, taxAmount: 650000, discount: 0, total: 7150000, paidAmount: 0, remainingAmount: 7150000, paymentStatus: 'pending', status: 'draft', createdAt: '2024-01-07T08:45:00', updatedAt: '' },
+const mockTransactions: MockTransaction[] = [
+  { id: '1', invoiceNumber: 'INV-2024-0001', customerId: '1', customer: mockCustomers[0], salesName: 'Admin', items: [{ id: '1', transactionId: '1', productId: '1', product: mockProducts[0], quantity: 2, unitPrice: 18500000, discount: 0, total: 37000000 }], subtotal: 37000000, taxAmount: 3700000, discount: 0, total: 40700000, paidAmount: 40700000, remainingAmount: 0, paymentStatus: 'PAID', paymentMethod: 'Bank Transfer', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T10:30:00' },
+  { id: '2', invoiceNumber: 'INV-2024-0002', customerId: '2', customer: mockCustomers[1], salesName: 'Admin', items: [{ id: '2', transactionId: '2', productId: '2', product: mockProducts[1], quantity: 5, unitPrice: 3500000, discount: 0, total: 17500000 }], subtotal: 17500000, taxAmount: 1750000, discount: 500000, total: 18750000, paidAmount: 10000000, remainingAmount: 8750000, paymentStatus: 'PARTIAL', paymentMethod: 'Cash', deliveryStatus: 'DELIVERED', createdAt: '2024-01-07T09:15:00' },
+  { id: '3', invoiceNumber: 'INV-2024-0003', customerId: '3', customer: mockCustomers[2], salesName: 'Sales 1', items: [{ id: '3', transactionId: '3', productId: '3', product: mockProducts[2], quantity: 100, unitPrice: 65000, discount: 0, total: 6500000 }], subtotal: 6500000, taxAmount: 650000, discount: 0, total: 7150000, paidAmount: 0, remainingAmount: 7150000, paymentStatus: 'UNPAID', deliveryStatus: 'PENDING', createdAt: '2024-01-07T08:45:00' },
 ]
 
 // ============ Transaction Item Row ============
 interface TransactionItemRowProps {
   item: TransactionItemFormData
-  products: Product[]
+  products: MockProduct[]
   onChange: (item: TransactionItemFormData) => void
   onRemove: () => void
 }
@@ -136,9 +189,9 @@ interface TransactionFormData {
 }
 
 function TransactionForm({ transaction, customers, products, onSubmit, onCancel, loading }: {
-  transaction?: Transaction
-  customers: Customer[]
-  products: Product[]
+  transaction?: MockTransaction
+  customers: MockCustomer[]
+  products: MockProduct[]
   onSubmit: (data: TransactionFormData) => void
   onCancel: () => void
   loading?: boolean
@@ -151,7 +204,7 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
     paymentMethod: transaction?.paymentMethod || DEFAULT_PAYMENT_METHODS[0],
     paidAmount: transaction?.paidAmount || 0,
     notes: '',
-    status: transaction?.status || 'draft',
+    status: transaction?.deliveryStatus || 'PENDING',
   })
 
   const taxRate = 0.1 // 10%
@@ -322,7 +375,7 @@ export default function TransactionsPage() {
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
-  const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
+  const [selectedTransaction, setSelectedTransaction] = React.useState<MockTransaction | null>(null)
   const [deleteDialog, setDeleteDialog] = React.useState(false)
   const [paymentDialog, setPaymentDialog] = React.useState(false)
 
@@ -373,7 +426,7 @@ export default function TransactionsPage() {
   })
 
   // Columns
-  const columns: ColumnDef<Transaction>[] = [
+  const columns: ColumnDef<MockTransaction>[] = [
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <SortableHeader column={column} title="Invoice" />,
@@ -417,13 +470,13 @@ export default function TransactionsPage() {
       },
     },
     {
-      accessorKey: 'status',
+      accessorKey: 'deliveryStatus',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.getValue('status') as string
+        const status = row.getValue('deliveryStatus') as string
         return (
-          <Badge className={TRANSACTION_STATUS_COLORS[status]}>
-            {TRANSACTION_STATUS_LABELS[status]}
+          <Badge className={DELIVERY_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'}>
+            {DELIVERY_STATUS_LABELS[status] || status}
           </Badge>
         )
       },
