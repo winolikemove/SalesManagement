@@ -958,6 +958,69 @@ export const mockTransactionsApi = {
     // Also add items to mockTransactionItems for backward compatibility
     transactionItems.forEach(item => mockTransactionItems.push(item))
     
+    // ========== FULFILLMENT LOGIC ==========
+    // If this is a fulfillment invoice, update the original transaction items
+    if (data.isFulfillmentInvoice || items.some(item => item.sourceTransactionId)) {
+      items.forEach(item => {
+        const sourceTransactionId = item.sourceTransactionId as string
+        const sourceItemId = item.sourceItemId as string
+        const fulfilledQty = Number(item.fulfilledQty || item.qtyOrderUnit) || 0
+        
+        if (sourceTransactionId && sourceItemId) {
+          // Find and update the original transaction item
+          const sourceTransactionIndex = mockTransactions.findIndex(t => t.id === sourceTransactionId)
+          
+          if (sourceTransactionIndex !== -1) {
+            const sourceTransaction = mockTransactions[sourceTransactionIndex]
+            
+            // Update the source item in the transaction
+            if (sourceTransaction.items) {
+              const sourceItemIndex = sourceTransaction.items.findIndex(i => i.id === sourceItemId)
+              
+              if (sourceItemIndex !== -1) {
+                const sourceItem = sourceTransaction.items[sourceItemIndex]
+                
+                // Update fulfilled quantities
+                const newQtyFulfilledUnit = (sourceItem.qtyFulfilledUnit || 0) + fulfilledQty
+                const newQtyFulfilledKg = newQtyFulfilledUnit * sourceItem.unitWeight
+                const qtyRemaining = sourceItem.qtyOrderUnit - newQtyFulfilledUnit
+                
+                // Determine new fulfillment status
+                let newFulfillmentStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED'
+                if (qtyRemaining <= 0) {
+                  newFulfillmentStatus = 'FULFILLED'
+                } else if (newQtyFulfilledUnit > 0) {
+                  newFulfillmentStatus = 'PARTIAL'
+                } else {
+                  newFulfillmentStatus = 'UNFULFILLED'
+                }
+                
+                // Update the source item
+                sourceTransaction.items[sourceItemIndex] = {
+                  ...sourceItem,
+                  qtyFulfilledUnit: newQtyFulfilledUnit,
+                  qtyFulfilledKg: newQtyFulfilledKg,
+                  qtyUnfulfilledUnit: Math.max(0, qtyRemaining),
+                  qtyUnfulfilledKg: Math.max(0, qtyRemaining * sourceItem.unitWeight),
+                  fulfillmentStatus: newFulfillmentStatus
+                }
+                
+                // Also update in mockTransactionItems array
+                const mockItemIndex = mockTransactionItems.findIndex(i => i.id === sourceItemId)
+                if (mockItemIndex !== -1) {
+                  mockTransactionItems[mockItemIndex] = sourceTransaction.items[sourceItemIndex]
+                }
+              }
+            }
+            
+            // Update the transaction in the array
+            mockTransactions[sourceTransactionIndex] = sourceTransaction
+          }
+        }
+      })
+    }
+    // ========== END FULFILLMENT LOGIC ==========
+    
     return {
       success: true,
       data: newTransaction

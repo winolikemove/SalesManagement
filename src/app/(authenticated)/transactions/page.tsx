@@ -17,6 +17,7 @@ import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, D
 import { usePageHeader } from '@/stores/app-store'
 import { useSalesNames, usePaymentMethods, useTaxRate, useProductCategories } from '@/hooks/use-settings'
 import { api } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
 import type { Transaction, TransactionItem, Customer, Product, CustomerPrice } from '@/types'
 
 // ============ Extended Transaction Item for Table Display ============
@@ -188,6 +189,10 @@ interface TransactionItemFormData {
   qtyFulfilledUnit: number
   qtyFulfilledKg: number
   maxQty?: number // For prefill: maximum allowed qty (remaining qty to fulfill)
+  // Source tracking for fulfillment invoices
+  sourceTransactionId?: string // Original transaction ID this fulfillment is for
+  sourceInvoiceNumber?: string // Original invoice number
+  sourceItemId?: string // Original transaction item ID being fulfilled
 }
 
 interface TransactionFormData {
@@ -591,9 +596,19 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
 
         <div className="space-y-3">
           {formData.items.map((item, index) => (
-            <div key={index} className="border rounded-lg p-3 space-y-3">
+            <div key={index} className={cn(
+              "border rounded-lg p-3 space-y-3",
+              item.sourceInvoiceNumber && "border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/20"
+            )}>
               <div className="flex justify-between items-start">
-                <span className="text-xs text-muted-foreground">Item {index + 1}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Item {index + 1}</span>
+                  {item.sourceInvoiceNumber && (
+                    <Badge variant="outline" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 border-blue-300">
+                      Pemenuhan: {item.sourceInvoiceNumber}
+                    </Badge>
+                  )}
+                </div>
                 {formData.items.length > 1 && (
                   <Button
                     type="button"
@@ -618,6 +633,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                   valueKey="id"
                   placeholder="Ketik nama barang..."
                   initialValue={item.productName}
+                  disabled={!!item.sourceTransactionId}
                   renderItem={(product) => (
                     <div className="flex justify-between items-center">
                       <div>
@@ -685,7 +701,11 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                     onChange={(value) => {
                       // Check if exceeds maxQty (for prefill items)
                       if (item.maxQty && value > item.maxQty) {
-                        alert(`Peringatan: Qty melebihi jumlah yang perlu dipenuhi (${item.maxQty} ${item.unitName})`)
+                        toast({
+                          title: "Peringatan",
+                          description: `Qty melebihi jumlah yang perlu dipenuhi (${item.maxQty} ${item.unitName})`,
+                          variant: "destructive",
+                        })
                       }
                       updateItem(index, 'quantity', value)
                     }}
@@ -1189,6 +1209,7 @@ export default function TransactionsPage() {
       customerAddress: string
       customerPhone: string
       items: Array<{
+        itemId: string // Transaction item ID
         transactionId: string
         invoiceNumber: string
         productId: string
@@ -1234,6 +1255,7 @@ export default function TransactionsPage() {
           }
           
           targetMap[customerKey].items.push({
+            itemId: item.id, // Include item ID for source tracking
             transactionId: tx.id,
             invoiceNumber: tx.invoiceNumber,
             productId: item.productId,
@@ -1289,6 +1311,10 @@ export default function TransactionsPage() {
       qtyFulfilledUnit: 0,
       qtyFulfilledKg: 0,
       maxQty: item.qtyRemaining, // Set max qty for validation
+      // Source tracking - to update original invoice when this fulfillment is saved
+      sourceTransactionId: item.transactionId,
+      sourceInvoiceNumber: item.invoiceNumber,
+      sourceItemId: item.itemId,
     }))
 
     setPrefillData({
@@ -1327,6 +1353,9 @@ export default function TransactionsPage() {
       const discountAmount = beforeDiscount * data.discountPercent / 100
       const grandTotal = beforeDiscount - discountAmount
 
+      // Check if this is a fulfillment invoice (has source tracking)
+      const hasFulfillmentItems = data.items.some(item => item.sourceTransactionId && item.sourceItemId)
+
       const response = await api.createTransaction({
         customerId: data.customerId,
         salesId: '',
@@ -1339,6 +1368,7 @@ export default function TransactionsPage() {
         paymentStatus: data.paymentStatus,
         deliveryStatus: data.deliveryStatus,
         notes: data.notes,
+        isFulfillmentInvoice: hasFulfillmentItems, // Flag for backend
         items: data.items.map(item => ({
           productId: item.productId,
           productCode: item.productCode,
@@ -1357,6 +1387,11 @@ export default function TransactionsPage() {
           qtyFulfilledKg: 0,
           qtyUnfulfilledUnit: item.quantity,
           qtyUnfulfilledKg: item.qtyKg,
+          // Source tracking for fulfillment invoices
+          sourceTransactionId: item.sourceTransactionId,
+          sourceInvoiceNumber: item.sourceInvoiceNumber,
+          sourceItemId: item.sourceItemId,
+          fulfilledQty: item.sourceTransactionId ? item.quantity : undefined, // Qty being fulfilled
         })),
       })
       return response
@@ -1365,6 +1400,11 @@ export default function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       setOpenDialog(false)
       setSelectedTransaction(null)
+      // Show success message
+      toast({
+        title: "Berhasil",
+        description: "Transaksi berhasil disimpan",
+      })
     },
   })
 
@@ -1606,7 +1646,14 @@ export default function TransactionsPage() {
       {/* Transaction Form Dialog */}
       <ModalForm
         open={openDialog}
-        onOpenChange={setOpenDialog}
+        onOpenChange={(open) => {
+          setOpenDialog(open)
+          if (!open) {
+            // Clear prefill data when dialog is closed
+            setPrefillData(null)
+            setSelectedTransaction(null)
+          }
+        }}
         title={selectedTransaction ? 'Edit Transaksi' : 'Transaksi Baru'}
         maxWidth="2xl"
       >
