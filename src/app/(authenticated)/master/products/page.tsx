@@ -13,6 +13,7 @@ import { api } from '@/lib/api'
 import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
 import { DEFAULT_CATEGORIES, DEFAULT_UNITS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
+import { useProductCategories, useProductUnits } from '@/hooks/use-settings'
 import type { Product } from '@/types'
 
 // ============ Product Form Component ============
@@ -33,21 +34,23 @@ interface ProductFormData {
   description: string
 }
 
-function ProductForm({ product, onSubmit, onCancel, loading }: {
+function ProductForm({ product, onSubmit, onCancel, loading, categories, units }: {
   product?: Product
   onSubmit: (data: ProductFormData) => void
   onCancel: () => void
   loading?: boolean
+  categories: string[]
+  units: string[]
 }) {
   const [formData, setFormData] = React.useState<ProductFormData>({
     productCode: product?.productCode || '',
     productName: product?.productName || '',
-    category: product?.category || DEFAULT_CATEGORIES[0],
+    category: product?.category || categories[0] || DEFAULT_CATEGORIES[0],
     baseUnitWeight: product?.baseUnitWeight || 0,
     basePricePerKg: product?.basePricePerKg || 0,
     basePricePerUnit: product?.basePricePerUnit || 0,
     isPPN: product?.isPPN ?? true,
-    unitName: product?.unitName || DEFAULT_UNITS[0],
+    unitName: product?.unitName || units[0] || DEFAULT_UNITS[0],
     kgName: product?.kgName || 'Kg',
     stockQtyUnit: product?.stockQtyUnit || 0,
     stockQtyKg: product?.stockQtyKg || 0,
@@ -107,7 +110,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
-              {DEFAULT_CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
@@ -136,7 +139,7 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
               value={formData.unitName}
               onChange={(e) => setFormData({ ...formData, unitName: e.target.value })}
             >
-              {DEFAULT_UNITS.map((unit) => (
+              {units.map((unit) => (
                 <option key={unit} value={unit}>{unit}</option>
               ))}
             </select>
@@ -261,6 +264,8 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
 export default function ProductsPage() {
   const queryClient = useQueryClient()
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
+  const categories = useProductCategories()
+  const units = useProductUnits()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null)
   const [deleteDialog, setDeleteDialog] = React.useState(false)
@@ -445,7 +450,7 @@ export default function ProductsPage() {
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
             <option value="all">All Categories</option>
-            {DEFAULT_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
@@ -463,6 +468,8 @@ export default function ProductsPage() {
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
           loading={createMutation.isPending || updateMutation.isPending}
+          categories={categories}
+          units={units}
         />
       </ModalForm>
 

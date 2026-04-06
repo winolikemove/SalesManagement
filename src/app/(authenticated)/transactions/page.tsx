@@ -14,6 +14,7 @@ import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
+import { useSalesNames, usePaymentMethods, useTaxRate } from '@/hooks/use-settings'
 
 // ============ Mock Data ============
 // Note: These mock data structures match the simplified UI needs
@@ -194,26 +195,29 @@ interface TransactionFormData {
   status: string
 }
 
-function TransactionForm({ transaction, customers, products, onSubmit, onCancel, loading }: {
+function TransactionForm({ transaction, customers, products, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
   transaction?: MockTransaction
   customers: MockCustomer[]
   products: MockProduct[]
+  salesNames: string[]
+  paymentMethods: string[]
+  taxRateSetting: number
   onSubmit: (data: TransactionFormData) => void
   onCancel: () => void
   loading?: boolean
 }) {
   const [formData, setFormData] = React.useState<TransactionFormData>({
     customerId: transaction?.customerId || '',
-    salesName: transaction?.salesName || '',
+    salesName: transaction?.salesName || salesNames[0] || '',
     items: transaction?.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount })) || [{ productId: '', quantity: 1, unitPrice: 0, discount: 0 }],
     discount: transaction?.discount || 0,
-    paymentMethod: transaction?.paymentMethod || DEFAULT_PAYMENT_METHODS[0],
+    paymentMethod: transaction?.paymentMethod || paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
     paidAmount: transaction?.paidAmount || 0,
     notes: '',
     status: transaction?.deliveryStatus || 'PENDING',
   })
 
-  const taxRate = 0.1 // 10%
+  const taxRate = taxRateSetting / 100 // Convert percentage to decimal
 
   const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount), 0)
   const taxAmount = subtotal * taxRate
@@ -260,12 +264,15 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Sales Name</label>
-          <input
-            type="text"
+          <select
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.salesName}
             onChange={(e) => setFormData({ ...formData, salesName: e.target.value })}
-          />
+          >
+            {salesNames.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -327,7 +334,7 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
             value={formData.paymentMethod}
             onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
           >
-            {DEFAULT_PAYMENT_METHODS.map((method) => (
+            {paymentMethods.map((method) => (
               <option key={method} value={method}>{method}</option>
             ))}
           </select>
@@ -381,6 +388,9 @@ function TransactionForm({ transaction, customers, products, onSubmit, onCancel,
 export default function TransactionsPage() {
   const queryClient = useQueryClient()
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
+  const salesNames = useSalesNames()
+  const paymentMethods = usePaymentMethods()
+  const taxRateSetting = useTaxRate()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
   const [selectedTransaction, setSelectedTransaction] = React.useState<MockTransaction | null>(null)
@@ -588,6 +598,9 @@ export default function TransactionsPage() {
           transaction={selectedTransaction || undefined}
           customers={customers || []}
           products={products || []}
+          salesNames={salesNames}
+          paymentMethods={paymentMethods}
+          taxRateSetting={taxRateSetting}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
           loading={createMutation.isPending || updateMutation.isPending}
@@ -737,7 +750,7 @@ export default function TransactionsPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Method</label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                {DEFAULT_PAYMENT_METHODS.map((method) => (
+                {paymentMethods.map((method) => (
                   <option key={method} value={method}>{method}</option>
                 ))}
               </select>

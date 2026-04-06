@@ -2,17 +2,16 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
-  Settings, 
   Building, 
   FileText, 
   Tags, 
@@ -20,18 +19,49 @@ import {
   Save,
   Plus,
   Trash2,
-  Upload
+  Upload,
+  Loader2,
+  X
 } from 'lucide-react'
 import { PageHeader, LoadingScreen } from '@/components/shared'
-import { usePageHeader } from '@/stores/app-store'
+import { usePageHeader, useAppStore } from '@/stores/app-store'
 import { useIsAdmin } from '@/stores/auth-store'
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS } from '@/lib/constants'
-import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { NumberInput } from '@/components/ui/number-input'
 
-// ============ Mock Config Data ============
-const mockConfig = {
+// ============ Types ============
+interface CompanySettings {
+  appName: string
+  companyName: string
+  logo: string
+  banner: string
+  address: string
+  phone: string
+  email: string
+  website: string
+  taxRate: number
+}
+
+interface InvoiceSettings {
+  invoicePrefix: string
+  invoiceStartingNumber: number
+  deliveryNotePrefix: string
+  deliveryNoteStartingNumber: number
+}
+
+interface CategorySettings {
+  categories: string[]
+  units: string[]
+}
+
+interface SalesSettings {
+  salesNames: string[]
+  paymentMethods: string[]
+}
+
+// ============ Default Values ============
+const defaultCompanySettings: CompanySettings = {
   appName: 'TransMan',
   companyName: 'PT TransMan Indonesia',
   logo: '',
@@ -40,12 +70,22 @@ const mockConfig = {
   phone: '021-1234567',
   email: 'info@transman.id',
   website: 'https://transman.id',
-  taxRate: 10,
+  taxRate: 11,
+}
+
+const defaultInvoiceSettings: InvoiceSettings = {
   invoicePrefix: 'INV',
   invoiceStartingNumber: 1,
   deliveryNotePrefix: 'DEL',
   deliveryNoteStartingNumber: 1,
+}
+
+const defaultCategorySettings: CategorySettings = {
   categories: DEFAULT_CATEGORIES,
+  units: DEFAULT_UNITS,
+}
+
+const defaultSalesSettings: SalesSettings = {
   salesNames: ['Admin', 'Sales 1', 'Sales 2', 'Sales 3'],
   paymentMethods: DEFAULT_PAYMENT_METHODS,
 }
@@ -54,360 +94,622 @@ const mockConfig = {
 export default function SettingsPage() {
   const queryClient = useQueryClient()
   const isAdmin = useIsAdmin()
-  const { setPageTitle, setBreadcrumbs } = usePageHeader()
+  const { setPageTitle, setBreadcrumbs, appConfig, setAppConfig } = useAppStore()
   const [activeTab, setActiveTab] = React.useState('company')
-  const [config, setConfig] = React.useState(mockConfig)
+  
+  // Track unsaved changes per section
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState({
+    company: false,
+    invoice: false,
+    categories: false,
+    sales: false,
+  })
+  
+  // Local state for each section
+  const [companySettings, setCompanySettings] = React.useState<CompanySettings>(
+    (appConfig.companySettings as CompanySettings) || defaultCompanySettings
+  )
+  const [invoiceSettings, setInvoiceSettings] = React.useState<InvoiceSettings>(
+    (appConfig.invoiceSettings as InvoiceSettings) || defaultInvoiceSettings
+  )
+  const [categorySettings, setCategorySettings] = React.useState<CategorySettings>(
+    (appConfig.categorySettings as CategorySettings) || defaultCategorySettings
+  )
+  const [salesSettings, setSalesSettings] = React.useState<SalesSettings>(
+    (appConfig.salesSettings as SalesSettings) || defaultSalesSettings
+  )
+  
+  // Input states
   const [newCategory, setNewCategory] = React.useState('')
+  const [newUnit, setNewUnit] = React.useState('')
   const [newSalesName, setNewSalesName] = React.useState('')
+  const [newPaymentMethod, setNewPaymentMethod] = React.useState('')
 
   React.useEffect(() => {
-    setPageTitle('Settings')
-    setBreadcrumbs([{ title: 'Settings' }])
+    setPageTitle('Pengaturan')
+    setBreadcrumbs([{ title: 'Pengaturan' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Fetch config
-  const { data: configData, isLoading } = useQuery({
-    queryKey: ['config'],
-    queryFn: async () => mockConfig,
-  })
-
-  // Update config mutation
-  const updateMutation = useMutation({
-    mutationFn: async (data: typeof config) => ({ success: true }),
+  // Save mutations for each section
+  const saveCompanyMutation = useMutation({
+    mutationFn: async (data: CompanySettings) => {
+      setAppConfig({ ...appConfig, companySettings: data })
+      return { success: true }
+    },
     onSuccess: () => {
-      toast.success('Settings saved successfully')
+      toast.success('Pengaturan perusahaan berhasil disimpan')
+      setHasUnsavedChanges(prev => ({ ...prev, company: false }))
     },
   })
 
-  React.useEffect(() => {
-    if (configData) {
-      setConfig(configData)
-    }
-  }, [configData])
+  const saveInvoiceMutation = useMutation({
+    mutationFn: async (data: InvoiceSettings) => {
+      setAppConfig({ ...appConfig, invoiceSettings: data })
+      return { success: true }
+    },
+    onSuccess: () => {
+      toast.success('Pengaturan invoice berhasil disimpan')
+      setHasUnsavedChanges(prev => ({ ...prev, invoice: false }))
+    },
+  })
 
-  const handleSave = () => {
-    updateMutation.mutate(config)
+  const saveCategoryMutation = useMutation({
+    mutationFn: async (data: CategorySettings) => {
+      setAppConfig({ ...appConfig, categorySettings: data })
+      return { success: true }
+    },
+    onSuccess: () => {
+      toast.success('Pengaturan kategori berhasil disimpan')
+      setHasUnsavedChanges(prev => ({ ...prev, categories: false }))
+    },
+  })
+
+  const saveSalesMutation = useMutation({
+    mutationFn: async (data: SalesSettings) => {
+      setAppConfig({ ...appConfig, salesSettings: data })
+      return { success: true }
+    },
+    onSuccess: () => {
+      toast.success('Pengaturan sales berhasil disimpan')
+      setHasUnsavedChanges(prev => ({ ...prev, sales: false }))
+    },
+  })
+
+  // Handlers for Company Settings
+  const updateCompanyField = <K extends keyof CompanySettings>(field: K, value: CompanySettings[K]) => {
+    setCompanySettings(prev => ({ ...prev, [field]: value }))
+    setHasUnsavedChanges(prev => ({ ...prev, company: true }))
+  }
+
+  const handleSaveCompany = () => {
+    saveCompanyMutation.mutate(companySettings)
+  }
+
+  // Handlers for Invoice Settings
+  const updateInvoiceField = <K extends keyof InvoiceSettings>(field: K, value: InvoiceSettings[K]) => {
+    setInvoiceSettings(prev => ({ ...prev, [field]: value }))
+    setHasUnsavedChanges(prev => ({ ...prev, invoice: true }))
+  }
+
+  const handleSaveInvoice = () => {
+    saveInvoiceMutation.mutate(invoiceSettings)
+  }
+
+  // Handlers for Category Settings
+  const updateCategories = (categories: string[]) => {
+    setCategorySettings(prev => ({ ...prev, categories }))
+    setHasUnsavedChanges(prev => ({ ...prev, categories: true }))
+  }
+
+  const updateUnits = (units: string[]) => {
+    setCategorySettings(prev => ({ ...prev, units }))
+    setHasUnsavedChanges(prev => ({ ...prev, categories: true }))
   }
 
   const addCategory = () => {
-    if (newCategory && !config.categories.includes(newCategory)) {
-      setConfig({ ...config, categories: [...config.categories, newCategory] })
+    if (newCategory.trim() && !categorySettings.categories.includes(newCategory.trim())) {
+      updateCategories([...categorySettings.categories, newCategory.trim()])
       setNewCategory('')
     }
   }
 
   const removeCategory = (category: string) => {
-    setConfig({ ...config, categories: config.categories.filter(c => c !== category) })
+    updateCategories(categorySettings.categories.filter(c => c !== category))
+  }
+
+  const addUnit = () => {
+    if (newUnit.trim() && !categorySettings.units.includes(newUnit.trim().toUpperCase())) {
+      updateUnits([...categorySettings.units, newUnit.trim().toUpperCase()])
+      setNewUnit('')
+    }
+  }
+
+  const removeUnit = (unit: string) => {
+    updateUnits(categorySettings.units.filter(u => u !== unit))
+  }
+
+  const handleSaveCategories = () => {
+    saveCategoryMutation.mutate(categorySettings)
+  }
+
+  // Handlers for Sales Settings
+  const updateSalesNames = (salesNames: string[]) => {
+    setSalesSettings(prev => ({ ...prev, salesNames }))
+    setHasUnsavedChanges(prev => ({ ...prev, sales: true }))
+  }
+
+  const updatePaymentMethods = (paymentMethods: string[]) => {
+    setSalesSettings(prev => ({ ...prev, paymentMethods }))
+    setHasUnsavedChanges(prev => ({ ...prev, sales: true }))
   }
 
   const addSalesName = () => {
-    if (newSalesName && !config.salesNames.includes(newSalesName)) {
-      setConfig({ ...config, salesNames: [...config.salesNames, newSalesName] })
+    if (newSalesName.trim() && !salesSettings.salesNames.includes(newSalesName.trim())) {
+      updateSalesNames([...salesSettings.salesNames, newSalesName.trim()])
       setNewSalesName('')
     }
   }
 
   const removeSalesName = (name: string) => {
-    setConfig({ ...config, salesNames: config.salesNames.filter(n => n !== name) })
+    updateSalesNames(salesSettings.salesNames.filter(n => n !== name))
   }
 
-  if (isLoading) {
-    return <LoadingScreen />
+  const addPaymentMethod = () => {
+    if (newPaymentMethod.trim() && !salesSettings.paymentMethods.includes(newPaymentMethod.trim())) {
+      updatePaymentMethods([...salesSettings.paymentMethods, newPaymentMethod.trim()])
+      setNewPaymentMethod('')
+    }
+  }
+
+  const removePaymentMethod = (method: string) => {
+    updatePaymentMethods(salesSettings.paymentMethods.filter(m => m !== method))
+  }
+
+  const handleSaveSales = () => {
+    saveSalesMutation.mutate(salesSettings)
   }
 
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-[400px]">
-        <p className="text-muted-foreground">You don't have permission to access this page.</p>
+        <p className="text-muted-foreground">Anda tidak memiliki akses ke halaman ini.</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" description="Manage application settings">
-        <Button onClick={handleSave} disabled={updateMutation.isPending}>
-          <Save className="h-4 w-4 mr-2" />
-          {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </PageHeader>
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader title="Pengaturan" description="Kelola pengaturan aplikasi" />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="company">
-            <Building className="h-4 w-4 mr-2" />
-            Company
-          </TabsTrigger>
-          <TabsTrigger value="invoice">
-            <FileText className="h-4 w-4 mr-2" />
-            Invoice
-          </TabsTrigger>
-          <TabsTrigger value="categories">
-            <Tags className="h-4 w-4 mr-2" />
-            Categories
-          </TabsTrigger>
-          <TabsTrigger value="users">
-            <Users className="h-4 w-4 mr-2" />
-            Sales Names
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <ScrollArea className="w-full">
+          <TabsList className="grid w-full grid-cols-4 min-w-[400px]">
+            <TabsTrigger value="company" className="text-xs md:text-sm">
+              <Building className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Perusahaan</span>
+              <span className="sm:hidden">Perusahaan</span>
+            </TabsTrigger>
+            <TabsTrigger value="invoice" className="text-xs md:text-sm">
+              <FileText className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Invoice</span>
+              <span className="sm:hidden">Invoice</span>
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="text-xs md:text-sm">
+              <Tags className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Kategori</span>
+              <span className="sm:hidden">Kategori</span>
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="text-xs md:text-sm">
+              <Users className="h-3 w-3 md:h-4 md:w-4 md:mr-2" />
+              <span className="hidden sm:inline">Sales</span>
+              <span className="sm:hidden">Sales</span>
+            </TabsTrigger>
+          </TabsList>
+        </ScrollArea>
 
         {/* Company Settings */}
-        <TabsContent value="company" className="space-y-6">
+        <TabsContent value="company" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Company Information</CardTitle>
-              <CardDescription>Update your company details</CardDescription>
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Informasi Perusahaan</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Perbarui detail perusahaan Anda
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  <Label>App Name</Label>
+                  <Label htmlFor="appName" className="text-xs md:text-sm">Nama Aplikasi</Label>
                   <Input
-                    value={config.appName}
-                    onChange={(e) => setConfig({ ...config, appName: e.target.value })}
+                    id="appName"
+                    value={companySettings.appName}
+                    onChange={(e) => updateCompanyField('appName', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Company Name</Label>
+                  <Label htmlFor="companyName" className="text-xs md:text-sm">Nama Perusahaan</Label>
                   <Input
-                    value={config.companyName}
-                    onChange={(e) => setConfig({ ...config, companyName: e.target.value })}
+                    id="companyName"
+                    value={companySettings.companyName}
+                    onChange={(e) => updateCompanyField('companyName', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Address</Label>
+                <Label htmlFor="address" className="text-xs md:text-sm">Alamat</Label>
                 <Textarea
-                  value={config.address}
-                  onChange={(e) => setConfig({ ...config, address: e.target.value })}
+                  id="address"
+                  value={companySettings.address}
+                  onChange={(e) => updateCompanyField('address', e.target.value)}
+                  className="text-sm md:text-base min-h-[80px]"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label htmlFor="phone" className="text-xs md:text-sm">Telepon</Label>
                   <Input
-                    value={config.phone}
-                    onChange={(e) => setConfig({ ...config, phone: e.target.value })}
+                    id="phone"
+                    value={companySettings.phone}
+                    onChange={(e) => updateCompanyField('phone', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label htmlFor="email" className="text-xs md:text-sm">Email</Label>
                   <Input
+                    id="email"
                     type="email"
-                    value={config.email}
-                    onChange={(e) => setConfig({ ...config, email: e.target.value })}
+                    value={companySettings.email}
+                    onChange={(e) => updateCompanyField('email', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Website</Label>
+                <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+                  <Label htmlFor="website" className="text-xs md:text-sm">Website</Label>
                   <Input
-                    value={config.website}
-                    onChange={(e) => setConfig({ ...config, website: e.target.value })}
+                    id="website"
+                    value={companySettings.website}
+                    onChange={(e) => updateCompanyField('website', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
               </div>
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  <Label>Logo</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
-                      {config.logo ? (
-                        <img src={config.logo} alt="Logo" className="h-14 w-14 object-contain" />
+                  <Label className="text-xs md:text-sm">Logo</Label>
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="h-12 w-12 md:h-16 md:w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      {companySettings.logo ? (
+                        <img src={companySettings.logo} alt="Logo" className="h-10 w-10 md:h-14 md:w-14 object-contain" />
                       ) : (
-                        <span className="text-2xl font-bold text-muted-foreground">T</span>
+                        <span className="text-lg md:text-2xl font-bold text-muted-foreground">T</span>
                       )}
                     </div>
-                    <Button variant="outline" size="sm">
-                      <Upload className="h-4 w-4 mr-2" />
+                    <Button variant="outline" size="sm" className="text-xs md:text-sm">
+                      <Upload className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                       Upload
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Tax Rate (%)</Label>
+                  <Label htmlFor="taxRate" className="text-xs md:text-sm">Tarif Pajak (%)</Label>
                   <NumberInput
-                    value={config.taxRate}
-                    onChange={(value) => setConfig({ ...config, taxRate: value })}
-                    placeholder="10"
+                    id="taxRate"
+                    value={companySettings.taxRate}
+                    onChange={(value) => updateCompanyField('taxRate', value)}
+                    placeholder="11"
                   />
                 </div>
               </div>
             </CardContent>
+            <CardFooter className="flex justify-end border-t pt-4">
+              <Button 
+                onClick={handleSaveCompany} 
+                disabled={saveCompanyMutation.isPending || !hasUnsavedChanges.company}
+                className="w-full sm:w-auto"
+              >
+                {saveCompanyMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Simpan Perusahaan
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
 
         {/* Invoice Settings */}
-        <TabsContent value="invoice" className="space-y-6">
+        <TabsContent value="invoice" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice Settings</CardTitle>
-              <CardDescription>Configure invoice numbering and format</CardDescription>
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Pengaturan Invoice</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Konfigurasi penomoran dan format invoice
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  <Label>Invoice Prefix</Label>
+                  <Label htmlFor="invoicePrefix" className="text-xs md:text-sm">Prefix Invoice</Label>
                   <Input
-                    value={config.invoicePrefix}
-                    onChange={(e) => setConfig({ ...config, invoicePrefix: e.target.value })}
+                    id="invoicePrefix"
+                    value={invoiceSettings.invoicePrefix}
+                    onChange={(e) => updateInvoiceField('invoicePrefix', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Starting Number</Label>
+                  <Label htmlFor="invoiceStartNum" className="text-xs md:text-sm">Nomor Awal</Label>
                   <NumberInput
-                    value={config.invoiceStartingNumber}
-                    onChange={(value) => setConfig({ ...config, invoiceStartingNumber: value })}
+                    id="invoiceStartNum"
+                    value={invoiceSettings.invoiceStartingNumber}
+                    onChange={(value) => updateInvoiceField('invoiceStartingNumber', value)}
                     placeholder="1"
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Preview:</p>
-                <p className="text-lg font-mono">
-                  {config.invoicePrefix}-{new Date().getFullYear()}-{String(config.invoiceStartingNumber).padStart(5, '0')}
+              <div className="p-3 md:p-4 bg-muted rounded-lg">
+                <p className="text-xs md:text-sm text-muted-foreground">Preview:</p>
+                <p className="text-sm md:text-lg font-mono mt-1">
+                  {invoiceSettings.invoicePrefix}-{new Date().getFullYear()}-{String(invoiceSettings.invoiceStartingNumber).padStart(5, '0')}
                 </p>
               </div>
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
-                  <Label>Delivery Note Prefix</Label>
+                  <Label htmlFor="deliveryPrefix" className="text-xs md:text-sm">Prefix Surat Jalan</Label>
                   <Input
-                    value={config.deliveryNotePrefix}
-                    onChange={(e) => setConfig({ ...config, deliveryNotePrefix: e.target.value })}
+                    id="deliveryPrefix"
+                    value={invoiceSettings.deliveryNotePrefix}
+                    onChange={(e) => updateInvoiceField('deliveryNotePrefix', e.target.value)}
+                    className="text-sm md:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Starting Number</Label>
+                  <Label htmlFor="deliveryStartNum" className="text-xs md:text-sm">Nomor Awal</Label>
                   <NumberInput
-                    value={config.deliveryNoteStartingNumber}
-                    onChange={(value) => setConfig({ ...config, deliveryNoteStartingNumber: value })}
+                    id="deliveryStartNum"
+                    value={invoiceSettings.deliveryNoteStartingNumber}
+                    onChange={(value) => updateInvoiceField('deliveryNoteStartingNumber', value)}
                     placeholder="1"
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Preview:</p>
-                <p className="text-lg font-mono">
-                  {config.deliveryNotePrefix}-{new Date().getFullYear()}-{String(config.deliveryNoteStartingNumber).padStart(5, '0')}
+              <div className="p-3 md:p-4 bg-muted rounded-lg">
+                <p className="text-xs md:text-sm text-muted-foreground">Preview:</p>
+                <p className="text-sm md:text-lg font-mono mt-1">
+                  {invoiceSettings.deliveryNotePrefix}-{new Date().getFullYear()}-{String(invoiceSettings.deliveryNoteStartingNumber).padStart(5, '0')}
                 </p>
               </div>
             </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Methods</CardTitle>
-              <CardDescription>Available payment methods for transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {config.paymentMethods.map((method) => (
-                  <Badge key={method} variant="secondary" className="px-3 py-1">
-                    {method}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
+            <CardFooter className="flex justify-end border-t pt-4">
+              <Button 
+                onClick={handleSaveInvoice} 
+                disabled={saveInvoiceMutation.isPending || !hasUnsavedChanges.invoice}
+                className="w-full sm:w-auto"
+              >
+                {saveInvoiceMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Simpan Invoice
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
 
         {/* Categories Settings */}
-        <TabsContent value="categories" className="space-y-6">
+        <TabsContent value="categories" className="space-y-4">
+          {/* Product Categories */}
           <Card>
-            <CardHeader>
-              <CardTitle>Product Categories</CardTitle>
-              <CardDescription>Manage product categories for your inventory</CardDescription>
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Kategori Produk</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Kelola kategori produk untuk inventaris Anda
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="New category name"
+                  placeholder="Nama kategori baru"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                  className="text-sm md:text-base"
                 />
-                <Button onClick={addCategory}>
+                <Button onClick={addCategory} size="icon" className="shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {config.categories.map((category) => (
-                  <Badge key={category} variant="secondary" className="px-3 py-1 gap-1">
+                {categorySettings.categories.map((category) => (
+                  <Badge 
+                    key={category} 
+                    variant="secondary" 
+                    className="px-2 py-1 md:px-3 text-xs md:text-sm gap-1"
+                  >
                     {category}
                     <button
                       onClick={() => removeCategory(category)}
                       className="ml-1 hover:text-destructive"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 ))}
               </div>
             </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Units of Measurement</CardTitle>
-              <CardDescription>Standard units for products</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_UNITS.map((unit) => (
-                  <Badge key={unit} variant="outline" className="px-3 py-1">
-                    {unit}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <Separator />
 
-        {/* Sales Names Settings */}
-        <TabsContent value="users" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sales Names</CardTitle>
-              <CardDescription>Manage sales person names for transactions</CardDescription>
+            {/* Units of Measurement */}
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Satuan Ukuran</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Satuan standar untuk produk
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="New sales name"
-                  value={newSalesName}
-                  onChange={(e) => setNewSalesName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addSalesName()}
+                  placeholder="Nama satuan baru"
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && addUnit()}
+                  className="text-sm md:text-base"
                 />
-                <Button onClick={addSalesName}>
+                <Button onClick={addUnit} size="icon" className="shrink-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {config.salesNames.map((name) => (
-                  <Badge key={name} variant="secondary" className="px-3 py-1 gap-1">
-                    {name}
+                {categorySettings.units.map((unit) => (
+                  <Badge 
+                    key={unit} 
+                    variant="outline" 
+                    className="px-2 py-1 md:px-3 text-xs md:text-sm gap-1"
+                  >
+                    {unit}
                     <button
-                      onClick={() => removeSalesName(name)}
+                      onClick={() => removeUnit(unit)}
                       className="ml-1 hover:text-destructive"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 ))}
               </div>
             </CardContent>
+            <CardFooter className="flex justify-end border-t pt-4">
+              <Button 
+                onClick={handleSaveCategories} 
+                disabled={saveCategoryMutation.isPending || !hasUnsavedChanges.categories}
+                className="w-full sm:w-auto"
+              >
+                {saveCategoryMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Simpan Kategori
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* Sales Settings */}
+        <TabsContent value="sales" className="space-y-4">
+          {/* Sales Names */}
+          <Card>
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Nama Sales</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Kelola nama sales person untuk transaksi
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nama sales baru"
+                  value={newSalesName}
+                  onChange={(e) => setNewSalesName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addSalesName()}
+                  className="text-sm md:text-base"
+                />
+                <Button onClick={addSalesName} size="icon" className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {salesSettings.salesNames.map((name) => (
+                  <Badge 
+                    key={name} 
+                    variant="secondary" 
+                    className="px-2 py-1 md:px-3 text-xs md:text-sm gap-1"
+                  >
+                    {name}
+                    <button
+                      onClick={() => removeSalesName(name)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+
+            <Separator />
+
+            {/* Payment Methods */}
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg">Metode Pembayaran</CardTitle>
+              <CardDescription className="text-xs md:text-sm">
+                Metode pembayaran yang tersedia untuk transaksi
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Metode pembayaran baru"
+                  value={newPaymentMethod}
+                  onChange={(e) => setNewPaymentMethod(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addPaymentMethod()}
+                  className="text-sm md:text-base"
+                />
+                <Button onClick={addPaymentMethod} size="icon" className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {salesSettings.paymentMethods.map((method) => (
+                  <Badge 
+                    key={method} 
+                    variant="outline" 
+                    className="px-2 py-1 md:px-3 text-xs md:text-sm gap-1"
+                  >
+                    {method}
+                    <button
+                      onClick={() => removePaymentMethod(method)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end border-t pt-4">
+              <Button 
+                onClick={handleSaveSales} 
+                disabled={saveSalesMutation.isPending || !hasUnsavedChanges.sales}
+                className="w-full sm:w-auto"
+              >
+                {saveSalesMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Simpan Sales
+              </Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
