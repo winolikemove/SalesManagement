@@ -1292,30 +1292,70 @@ export default function TransactionsPage() {
   // Handle click on customer to create new transaction
   const handleCustomerClick = (customerData: typeof fulfillmentSummary.unfulfilled[0]) => {
     // Pre-fill items for new transaction - only items that need fulfillment
-    const itemsToFill: TransactionItemFormData[] = customerData.items.map(item => ({
-      productId: item.productId,
-      productCode: item.productCode,
-      productName: item.productName,
-      quantity: item.qtyRemaining, // Only remaining qty
-      unitWeight: item.unitWeight,
-      qtyKg: item.qtyRemaining * item.unitWeight,
-      unitPrice: item.pricePerUnit,
-      pricePerKg: item.pricePerKg,
-      unitName: item.unitName,
-      kgName: item.kgName,
-      discount: 0,
-      discountPercent: 0,
-      hasSpecialPrice: false,
-      originalPrice: item.pricePerUnit,
-      fulfillmentStatus: 'UNFULFILLED' as const,
-      qtyFulfilledUnit: 0,
-      qtyFulfilledKg: 0,
-      maxQty: item.qtyRemaining, // Set max qty for validation
-      // Source tracking - to update original invoice when this fulfillment is saved
-      sourceTransactionId: item.transactionId,
-      sourceInvoiceNumber: item.invoiceNumber,
-      sourceItemId: item.itemId,
-    }))
+    const itemsToFill: TransactionItemFormData[] = customerData.items.map(item => {
+      // Look up customer special price from Customer Prices master data
+      const customerPrice = customerPrices.find(cp =>
+        cp.customerId === customerData.customerId &&
+        cp.productId === item.productId &&
+        cp.isActive
+      )
+
+      // Look up product for base price fallback
+      const product = products.find(p => p.id === item.productId)
+
+      // Determine prices: Customer Price > Product Base Price > Original Transaction Price
+      let unitPrice: number
+      let pricePerKg: number
+      let discountPercent = 0
+      let discount = 0
+      let hasSpecialPrice = false
+      let originalPrice: number
+
+      if (customerPrice) {
+        // Use customer special price
+        unitPrice = customerPrice.specialPricePerUnit
+        pricePerKg = customerPrice.specialPricePerKg
+        discountPercent = customerPrice.discountPercent || 0
+        discount = item.qtyRemaining * unitPrice * discountPercent / 100
+        hasSpecialPrice = true
+        originalPrice = product?.basePricePerUnit || item.pricePerUnit
+      } else if (product) {
+        // Use product base price
+        unitPrice = product.basePricePerUnit
+        pricePerKg = product.basePricePerKg
+        originalPrice = product.basePricePerUnit
+      } else {
+        // Fallback to original transaction price
+        unitPrice = item.pricePerUnit
+        pricePerKg = item.pricePerKg
+        originalPrice = item.pricePerUnit
+      }
+
+      return {
+        productId: item.productId,
+        productCode: item.productCode,
+        productName: item.productName,
+        quantity: item.qtyRemaining, // Only remaining qty
+        unitWeight: item.unitWeight,
+        qtyKg: item.qtyRemaining * item.unitWeight,
+        unitPrice,
+        pricePerKg,
+        unitName: item.unitName,
+        kgName: item.kgName,
+        discount,
+        discountPercent,
+        hasSpecialPrice,
+        originalPrice,
+        fulfillmentStatus: 'UNFULFILLED' as const,
+        qtyFulfilledUnit: 0,
+        qtyFulfilledKg: 0,
+        maxQty: item.qtyRemaining, // Set max qty for validation
+        // Source tracking - to update original invoice when this fulfillment is saved
+        sourceTransactionId: item.transactionId,
+        sourceInvoiceNumber: item.invoiceNumber,
+        sourceItemId: item.itemId,
+      }
+    })
 
     setPrefillData({
       customerId: customerData.customerId,
