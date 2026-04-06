@@ -870,9 +870,67 @@ export const mockTransactionsApi = {
     await mockApiDelay(MOCK_DELAY)
     
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(mockTransactions.length + 1).padStart(4, '0')}`
+    const transactionId = 'trx-' + Date.now()
+    
+    // Calculate totals from items
+    const items = (data.items as Array<Record<string, unknown>>) || []
+    let subtotal = 0
+    
+    // Create transaction items
+    const transactionItems = items.map((item, index) => {
+      const product = mockProducts.find(p => p.id === item.productId)
+      const qtyOrderUnit = Number(item.qtyOrderUnit) || 1
+      const qtyOrderKg = Number(item.qtyOrderKg) || (qtyOrderUnit * (product?.baseUnitWeight || 1))
+      const pricePerUnit = Number(item.pricePerUnit) || product?.basePricePerUnit || 0
+      const pricePerKg = Number(item.pricePerKg) || product?.basePricePerKg || 0
+      const discount = Number(item.discount) || 0
+      const itemSubtotal = (qtyOrderUnit * pricePerUnit) - discount
+      
+      subtotal += itemSubtotal
+      
+      return {
+        id: `item-${transactionId}-${index}`,
+        transactionId,
+        invoiceNumber,
+        productId: String(item.productId || ''),
+        productCode: String(item.productCode || product?.productCode || ''),
+        productName: String(item.productName || product?.productName || ''),
+        unitWeight: Number(item.unitWeight || product?.baseUnitWeight || 1),
+        pricePerKg,
+        pricePerUnit,
+        qtyOrderUnit,
+        qtyOrderKg,
+        qtyFulfilledUnit: 0,
+        qtyFulfilledKg: 0,
+        qtyUnfulfilledUnit: qtyOrderUnit,
+        qtyUnfulfilledKg: qtyOrderKg,
+        unitName: String(item.unitName || product?.unitName || 'Pcs'),
+        kgName: String(item.kgName || product?.kgName || 'Kg'),
+        isPPN: Boolean(item.isPPN ?? true),
+        subtotal: itemSubtotal,
+        taxAmount: 0,
+        totalAmount: itemSubtotal,
+        fulfillmentStatus: 'UNFULFILLED' as const,
+        notes: '',
+        createdAt: new Date().toISOString(),
+      }
+    })
+    
+    const taxAmount = Number(data.taxAmount) || 0
+    const discountAmount = Number(data.discountAmount) || 0
+    const grandTotal = Number(data.grandTotal) || (subtotal + taxAmount - discountAmount)
+    const paidAmount = Number(data.paidAmount) || 0
+    
+    // Determine payment status
+    let paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' = 'UNPAID'
+    if (paidAmount >= grandTotal) {
+      paymentStatus = 'PAID'
+    } else if (paidAmount > 0) {
+      paymentStatus = 'PARTIAL'
+    }
     
     const newTransaction = {
-      id: 'trx-' + Date.now(),
+      id: transactionId,
       invoiceNumber,
       invoiceDate: new Date().toISOString().split('T')[0],
       customerId: String(data.customerId),
@@ -881,21 +939,24 @@ export const mockTransactionsApi = {
       customerAddress: mockCustomers.find(c => c.id === data.customerId)?.address || '',
       customerPhone: mockCustomers.find(c => c.id === data.customerId)?.picPhone || '',
       salesId: String(data.salesId || 'user-002'),
-      salesName: mockUsers.find(u => u.id === data.salesId)?.fullName || 'Budi Santoso',
-      subtotal: Number(data.subtotal) || 0,
-      taxAmount: Number(data.taxAmount) || 0,
-      discountAmount: Number(data.discountAmount) || 0,
-      grandTotal: Number(data.grandTotal) || 0,
-      paidAmount: 0,
-      remainingAmount: Number(data.grandTotal) || 0,
-      paymentStatus: 'UNPAID' as const,
-      deliveryStatus: 'PENDING' as const,
+      salesName: String(data.salesName || mockUsers.find(u => u.id === data.salesId)?.fullName || 'Budi Santoso'),
+      subtotal,
+      taxAmount,
+      discountAmount,
+      grandTotal,
+      paidAmount,
+      remainingAmount: grandTotal - paidAmount,
+      paymentStatus,
+      deliveryStatus: (data.deliveryStatus as 'PENDING' | 'PROCESSING' | 'PARTIAL' | 'DELIVERED') || 'PENDING',
       notes: String(data.notes || ''),
+      items: transactionItems,
       createdAt: new Date().toISOString(),
       createdBy: 'mock-user'
     }
     
     mockTransactions.push(newTransaction)
+    // Also add items to mockTransactionItems for backward compatibility
+    transactionItems.forEach(item => mockTransactionItems.push(item))
     
     return {
       success: true,

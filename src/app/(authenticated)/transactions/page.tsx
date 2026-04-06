@@ -184,6 +184,8 @@ interface TransactionFormData {
   paymentMethod: string
   paidAmount: number
   notes: string
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID'
+  deliveryStatus: 'PENDING' | 'PROCESSING' | 'PARTIAL' | 'DELIVERED'
 }
 
 function TransactionForm({ transaction, customers, products, customerPrices, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
@@ -219,11 +221,16 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
           unitName: i.unitName,
           kgName: i.kgName,
           discount: 0,
+          discountPercent: 0,
+          hasSpecialPrice: false,
+          originalPrice: i.pricePerUnit,
         })) || [],
         discountPercent: 0,
         paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
         paidAmount: transaction.paidAmount,
         notes: transaction.notes,
+        paymentStatus: transaction.paymentStatus,
+        deliveryStatus: transaction.deliveryStatus,
       }
     }
     return {
@@ -238,6 +245,8 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
       paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
       paidAmount: 0,
       notes: '',
+      paymentStatus: 'UNPAID',
+      deliveryStatus: 'PENDING',
     }
   })
 
@@ -248,6 +257,20 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
   const discountAmount = beforeDiscount * formData.discountPercent / 100
   const total = beforeDiscount - discountAmount
   const remainingAmount = total - formData.paidAmount
+
+  // Auto-calculate payment status based on paidAmount
+  React.useEffect(() => {
+    let newPaymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID' = 'UNPAID'
+    if (remainingAmount <= 0 && total > 0) {
+      newPaymentStatus = 'PAID'
+    } else if (formData.paidAmount > 0) {
+      newPaymentStatus = 'PARTIAL'
+    }
+    
+    if (formData.paymentStatus !== newPaymentStatus) {
+      setFormData(prev => ({ ...prev, paymentStatus: newPaymentStatus }))
+    }
+  }, [formData.paidAmount, remainingAmount, total, formData.paymentStatus])
 
   // Handle customer selection with auto-fill
   const handleCustomerSelect = (value: string, customer?: Customer) => {
@@ -736,6 +759,34 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         </span>
       </div>
 
+      {/* Status */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Status Pembayaran</label>
+          <div className="flex gap-2">
+            <Badge className={PAYMENT_STATUS_COLORS[formData.paymentStatus] || 'bg-gray-100'}>
+              {PAYMENT_STATUS_LABELS[formData.paymentStatus] || formData.paymentStatus}
+            </Badge>
+            <span className="text-xs text-muted-foreground self-center">
+              (Otomatis dari jumlah bayar)
+            </span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Status Pengiriman</label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.deliveryStatus}
+            onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as TransactionFormData['deliveryStatus'] })}
+          >
+            <option value="PENDING">Pending</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="DELIVERED">Delivered</option>
+          </select>
+        </div>
+      </div>
+
       {/* Notes */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Catatan</label>
@@ -1031,12 +1082,28 @@ export default function TransactionsPage() {
         taxAmount,
         discountAmount,
         grandTotal,
+        paidAmount: data.paidAmount,
+        paymentStatus: data.paymentStatus,
+        deliveryStatus: data.deliveryStatus,
         notes: data.notes,
         items: data.items.map(item => ({
           productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
           qtyOrderUnit: item.quantity,
+          qtyOrderKg: item.qtyKg,
+          unitWeight: item.unitWeight,
           pricePerUnit: item.unitPrice,
+          pricePerKg: item.pricePerKg,
+          unitName: item.unitName,
+          kgName: item.kgName,
+          isPPN: true,
           discount: item.discount,
+          fulfillmentStatus: 'UNFULFILLED',
+          qtyFulfilledUnit: 0,
+          qtyFulfilledKg: 0,
+          qtyUnfulfilledUnit: item.quantity,
+          qtyUnfulfilledKg: item.qtyKg,
         })),
       })
       return response
