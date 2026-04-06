@@ -3,10 +3,10 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, ColumnFiltersState, SortingState, getFilteredRowModel } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Search, X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
@@ -191,7 +191,7 @@ interface TransactionFormData {
   deliveryStatus: 'PENDING' | 'PROCESSING' | 'PARTIAL' | 'DELIVERED'
 }
 
-function TransactionForm({ transaction, customers, products, customerPrices, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
+function TransactionForm({ transaction, customers, products, customerPrices, salesNames, paymentMethods, taxRateSetting, prefillData, onSubmit, onCancel, loading }: {
   transaction?: Transaction
   customers: Customer[]
   products: Product[]
@@ -199,6 +199,14 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
   salesNames: string[]
   paymentMethods: string[]
   taxRateSetting: number
+  prefillData?: {
+    customerId: string
+    customerCode: string
+    customerName: string
+    customerAddress: string
+    customerPhone: string
+    items: TransactionItemFormData[]
+  } | null
   onSubmit: (data: TransactionFormData) => void
   onCancel: () => void
   loading?: boolean
@@ -237,6 +245,24 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
         notes: transaction.notes,
         paymentStatus: transaction.paymentStatus,
         deliveryStatus: transaction.deliveryStatus,
+      }
+    }
+    // Check for prefill data from fulfillment card click
+    if (prefillData) {
+      return {
+        customerId: prefillData.customerId,
+        customerCode: prefillData.customerCode,
+        customerName: prefillData.customerName,
+        customerAddress: prefillData.customerAddress,
+        customerPhone: prefillData.customerPhone,
+        salesName: salesNames[0] || '',
+        items: prefillData.items,
+        discountPercent: 0,
+        paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
+        paidAmount: 0,
+        notes: '',
+        paymentStatus: 'UNPAID',
+        deliveryStatus: 'PENDING',
       }
     }
     return {
@@ -694,62 +720,60 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                 </div>
               </div>
 
-              {/* Fulfillment Status - Only show in edit mode */}
-              {transaction && (
-                <div className="mt-3 pt-3 border-t border-dashed">
-                  <div className="grid grid-cols-12 gap-2">
-                    <div className="col-span-3">
-                      <label className="text-xs text-muted-foreground mb-1 block">Status Pengiriman</label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                        value={item.fulfillmentStatus}
-                        onChange={(e) => updateItem(index, 'fulfillmentStatus', e.target.value)}
-                      >
-                        <option value="UNFULFILLED">Belum Terpenuhi</option>
-                        <option value="PARTIAL">Sebagian</option>
-                        <option value="FULFILLED">Terpenuhi</option>
-                      </select>
-                    </div>
-                    <div className="col-span-3">
-                      <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim (Unit)</label>
-                      <NumberInput
-                        className="h-9 text-xs"
-                        value={item.qtyFulfilledUnit}
-                        onChange={(value) => {
-                          const newItems = [...formData.items]
-                          // Auto-calculate fulfillment status
-                          let newStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED' = 'UNFULFILLED'
-                          if (value >= item.quantity) {
-                            newStatus = 'FULFILLED'
-                          } else if (value > 0) {
-                            newStatus = 'PARTIAL'
-                          }
-                          newItems[index] = {
-                            ...newItems[index],
-                            qtyFulfilledUnit: value,
-                            qtyFulfilledKg: value * newItems[index].unitWeight,
-                            fulfillmentStatus: newStatus
-                          }
-                          setFormData(prev => ({ ...prev, items: newItems }))
-                        }}
-                        min={0}
-                        max={item.quantity}
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim ({item.kgName || 'Kg'})</label>
-                      <div className="h-9 flex items-center text-xs bg-muted/30 rounded-md px-2">
-                        {(item.qtyFulfilledKg || 0).toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="col-span-3 flex items-end">
-                      <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100'}>
-                        {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
-                      </Badge>
+              {/* Fulfillment Status - Always show for delivery tracking */}
+              <div className="mt-3 pt-3 border-t border-dashed">
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-3">
+                    <label className="text-xs text-muted-foreground mb-1 block">Status Pengiriman</label>
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      value={item.fulfillmentStatus}
+                      onChange={(e) => updateItem(index, 'fulfillmentStatus', e.target.value)}
+                    >
+                      <option value="UNFULFILLED">Belum Terpenuhi</option>
+                      <option value="PARTIAL">Sebagian</option>
+                      <option value="FULFILLED">Terpenuhi</option>
+                    </select>
+                  </div>
+                  <div className="col-span-3">
+                    <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim (Unit)</label>
+                    <NumberInput
+                      className="h-9 text-xs"
+                      value={item.qtyFulfilledUnit}
+                      onChange={(value) => {
+                        const newItems = [...formData.items]
+                        // Auto-calculate fulfillment status
+                        let newStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED' = 'UNFULFILLED'
+                        if (value >= item.quantity) {
+                          newStatus = 'FULFILLED'
+                        } else if (value > 0) {
+                          newStatus = 'PARTIAL'
+                        }
+                        newItems[index] = {
+                          ...newItems[index],
+                          qtyFulfilledUnit: value,
+                          qtyFulfilledKg: value * newItems[index].unitWeight,
+                          fulfillmentStatus: newStatus
+                        }
+                        setFormData(prev => ({ ...prev, items: newItems }))
+                      }}
+                      min={0}
+                      max={item.quantity}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className="text-xs text-muted-foreground mb-1 block">Qty Terkirim ({item.kgName || 'Kg'})</label>
+                    <div className="h-9 flex items-center text-xs bg-muted/30 rounded-md px-2">
+                      {(item.qtyFulfilledKg || 0).toFixed(2)}
                     </div>
                   </div>
+                  <div className="col-span-3 flex items-end">
+                    <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100'}>
+                      {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
+                    </Badge>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
 
@@ -1026,6 +1050,18 @@ export default function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
   const [deleteDialog, setDeleteDialog] = React.useState(false)
   const [paymentDialog, setPaymentDialog] = React.useState(false)
+  
+  // Fulfillment tracking states
+  const [fulfillmentDialog, setFulfillmentDialog] = React.useState(false)
+  const [fulfillmentFilter, setFulfillmentFilter] = React.useState<'UNFULFILLED' | 'PARTIAL' | null>(null)
+  const [prefillData, setPrefillData] = React.useState<{
+    customerId: string
+    customerCode: string
+    customerName: string
+    customerAddress: string
+    customerPhone: string
+    items: TransactionItemFormData[]
+  } | null>(null)
 
   // Global search state
   const [globalSearch, setGlobalSearch] = React.useState('')
@@ -1117,6 +1153,130 @@ export default function TransactionsPage() {
       )
     })
   }, [transactionItems, globalSearch])
+
+  // Compute fulfillment summary - group unfulfilled/partial items by customer
+  const fulfillmentSummary = React.useMemo(() => {
+    const unfulfilledByCustomer: Record<string, {
+      customerId: string
+      customerCode: string
+      customerName: string
+      customerAddress: string
+      customerPhone: string
+      items: Array<{
+        transactionId: string
+        invoiceNumber: string
+        productId: string
+        productCode: string
+        productName: string
+        qtyOrdered: number
+        qtyFulfilled: number
+        qtyRemaining: number
+        unitWeight: number
+        unitName: string
+        kgName: string
+        pricePerUnit: number
+        pricePerKg: number
+        fulfillmentStatus: string
+      }>
+    }> = {}
+
+    const partialByCustomer: Record<string, typeof unfulfilledByCustomer[string]> = {}
+
+    transactions.forEach(tx => {
+      if (!tx.items) return
+      
+      tx.items.forEach(item => {
+        const status = item.fulfillmentStatus || 'UNFULFILLED'
+        const qtyRemaining = item.qtyOrderUnit - (item.qtyFulfilledUnit || 0)
+        
+        if (qtyRemaining <= 0) return // Skip fully fulfilled
+        
+        const customerKey = tx.customerId
+        
+        if (status === 'UNFULFILLED' || status === 'PARTIAL') {
+          const targetMap = status === 'UNFULFILLED' ? unfulfilledByCustomer : partialByCustomer
+          
+          if (!targetMap[customerKey]) {
+            targetMap[customerKey] = {
+              customerId: tx.customerId,
+              customerCode: tx.customerCode,
+              customerName: tx.customerName,
+              customerAddress: tx.customerAddress,
+              customerPhone: tx.customerPhone,
+              items: []
+            }
+          }
+          
+          targetMap[customerKey].items.push({
+            transactionId: tx.id,
+            invoiceNumber: tx.invoiceNumber,
+            productId: item.productId,
+            productCode: item.productCode,
+            productName: item.productName,
+            qtyOrdered: item.qtyOrderUnit,
+            qtyFulfilled: item.qtyFulfilledUnit || 0,
+            qtyRemaining,
+            unitWeight: item.unitWeight,
+            unitName: item.unitName,
+            kgName: item.kgName,
+            pricePerUnit: item.pricePerUnit,
+            pricePerKg: item.pricePerKg,
+            fulfillmentStatus: status
+          })
+        }
+      })
+    })
+
+    return {
+      unfulfilled: Object.values(unfulfilledByCustomer),
+      partial: Object.values(partialByCustomer),
+      unfulfilledCount: Object.values(unfulfilledByCustomer).reduce((sum, c) => sum + c.items.length, 0),
+      partialCount: Object.values(partialByCustomer).reduce((sum, c) => sum + c.items.length, 0),
+    }
+  }, [transactions])
+
+  // Handle click on fulfillment card
+  const handleFulfillmentCardClick = (type: 'UNFULFILLED' | 'PARTIAL') => {
+    setFulfillmentFilter(type)
+    setFulfillmentDialog(true)
+  }
+
+  // Handle click on customer to create new transaction
+  const handleCustomerClick = (customerData: typeof fulfillmentSummary.unfulfilled[0]) => {
+    // Pre-fill items for new transaction - only items that need fulfillment
+    const itemsToFill: TransactionItemFormData[] = customerData.items.map(item => ({
+      productId: item.productId,
+      productCode: item.productCode,
+      productName: item.productName,
+      quantity: item.qtyRemaining, // Only remaining qty
+      unitWeight: item.unitWeight,
+      qtyKg: item.qtyRemaining * item.unitWeight,
+      unitPrice: item.pricePerUnit,
+      pricePerKg: item.pricePerKg,
+      unitName: item.unitName,
+      kgName: item.kgName,
+      discount: 0,
+      discountPercent: 0,
+      hasSpecialPrice: false,
+      originalPrice: item.pricePerUnit,
+      fulfillmentStatus: 'UNFULFILLED' as const,
+      qtyFulfilledUnit: 0,
+      qtyFulfilledKg: 0,
+    }))
+
+    setPrefillData({
+      customerId: customerData.customerId,
+      customerCode: customerData.customerCode,
+      customerName: customerData.customerName,
+      customerAddress: customerData.customerAddress,
+      customerPhone: customerData.customerPhone,
+      items: itemsToFill,
+    })
+    
+    setSelectedTransaction(null) // New transaction
+    setFulfillmentDialog(false)
+    setOpenDialog(true)
+  }
 
   // Fetch single transaction with items for view dialog
   const { data: transactionDetails } = useQuery({
@@ -1319,12 +1479,64 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Transactions" description="Kelola transaksi penjualan">
-        <Button onClick={() => { setSelectedTransaction(null); setOpenDialog(true) }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Transaksi Baru
-        </Button>
-      </PageHeader>
+      {/* Header with Fulfillment Cards */}
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="Transactions" description="Kelola transaksi penjualan">
+          <Button onClick={() => { setSelectedTransaction(null); setPrefillData(null); setOpenDialog(true) }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Transaksi Baru
+          </Button>
+        </PageHeader>
+        
+        {/* Fulfillment Status Cards */}
+        <div className="flex gap-3 shrink-0">
+          {/* Unfulfilled Card */}
+          <Card 
+            className="w-40 cursor-pointer hover:shadow-md transition-shadow border-red-200 dark:border-red-800"
+            onClick={() => handleFulfillmentCardClick('UNFULFILLED')}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-md">
+                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{fulfillmentSummary.unfulfilledCount}</p>
+                  <p className="text-xs text-muted-foreground">Belum Terpenuhi</p>
+                </div>
+              </div>
+              {fulfillmentSummary.unfulfilled.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {fulfillmentSummary.unfulfilled.length} customer
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Partial Card */}
+          <Card 
+            className="w-40 cursor-pointer hover:shadow-md transition-shadow border-yellow-200 dark:border-yellow-800"
+            onClick={() => handleFulfillmentCardClick('PARTIAL')}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md">
+                  <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{fulfillmentSummary.partialCount}</p>
+                  <p className="text-xs text-muted-foreground">Sebagian</p>
+                </div>
+              </div>
+              {fulfillmentSummary.partial.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {fulfillmentSummary.partial.length} customer
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Global Search */}
       <div className="relative">
@@ -1377,8 +1589,9 @@ export default function TransactionsPage() {
           salesNames={salesNames}
           paymentMethods={paymentMethods}
           taxRateSetting={taxRateSetting}
+          prefillData={prefillData}
           onSubmit={handleSubmit}
-          onCancel={() => setOpenDialog(false)}
+          onCancel={() => { setOpenDialog(false); setPrefillData(null) }}
           loading={createMutation.isPending}
         />
       </ModalForm>
@@ -1516,6 +1729,89 @@ export default function TransactionsPage() {
             loading={updatePaymentMutation.isPending}
           />
         )}
+      </ModalForm>
+
+      {/* Fulfillment List Dialog */}
+      <ModalForm
+        open={fulfillmentDialog}
+        onOpenChange={setFulfillmentDialog}
+        title={fulfillmentFilter === 'UNFULFILLED' ? 'Item Belum Terpenuhi' : 'Item Sebagian Terkirim'}
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Klik customer untuk membuat transaksi baru dengan item yang perlu dipenuhi
+          </p>
+          
+          {(() => {
+            const customerList = fulfillmentFilter === 'UNFULFILLED' 
+              ? fulfillmentSummary.unfulfilled 
+              : fulfillmentSummary.partial
+            
+            if (customerList.length === 0) {
+              return (
+                <div className="text-center py-8 text-muted-foreground">
+                  Tidak ada item dengan status {fulfillmentFilter === 'UNFULFILLED' ? 'belum terpenuhi' : 'sebagian'}
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-3">
+                {customerList.map((customer) => (
+                  <Card 
+                    key={customer.customerId}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleCustomerClick(customer)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">{customer.customerName}</p>
+                          <p className="text-xs text-muted-foreground">{customer.customerCode}</p>
+                          {customer.customerPhone && (
+                            <p className="text-xs text-muted-foreground">{customer.customerPhone}</p>
+                          )}
+                        </div>
+                        <Badge className={fulfillmentFilter === 'UNFULFILLED' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' 
+                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        }>
+                          {customer.items.length} item
+                        </Badge>
+                      </div>
+                      
+                      {/* Items Preview */}
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="space-y-1">
+                          {customer.items.slice(0, 3).map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-xs">
+                              <span>{item.productName}</span>
+                              <span className="text-muted-foreground">
+                                {item.qtyRemaining} {item.unitName} tersisa
+                              </span>
+                            </div>
+                          ))}
+                          {customer.items.length > 3 && (
+                            <p className="text-xs text-muted-foreground">
+                              +{customer.items.length - 3} item lainnya
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="mt-2 flex justify-end">
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-3 w-3 mr-1" /> Buat Transaksi
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
       </ModalForm>
     </div>
   )
