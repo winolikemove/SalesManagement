@@ -107,3 +107,60 @@ Successfully updated the Settings page to integrate with the backend API:
 **TypeScript/ESLint Results:**
 - No errors in settings/page.tsx
 - Only pre-existing warnings in other files
+
+---
+## Task ID: update-transaction-detail-table
+### Agent: Main Agent
+### Task: Update struktur tabel transaksi detail untuk sesuai dengan backend, tambahkan sorting dan filter kategori
+
+### Work Log:
+- Memeriksa struktur TransactionItem di types/index.ts
+- Memeriksa API layer di api.ts untuk memahami endpoint yang tersedia
+- Memeriksa mock-api.ts dan mock-data.ts untuk memahami data structure
+- Memeriksa data-table.tsx untuk memahami implementasi sorting dan filtering
+- Mengupdate halaman transactions dengan TransactionItemsTable component baru
+
+### Changes Made:
+1. **Created TransactionItemsTable Component** - Komponen baru untuk menampilkan detail item transaksi:
+   - Menampilkan semua field dari TransactionItem type
+   - Kode Produk, Nama Produk, Kategori
+   - Qty Order (Unit & Kg), Qty Terkirim, Qty Belum Terkirim
+   - Harga per Unit, Harga per Kg
+   - Subtotal, PPN, Total Amount
+   - Status Fulfillment dengan color-coded badges
+   - Catatan
+
+2. **Added Sorting Feature** - Semua kolom dapat di-sort:
+   - Sort ascending/descending
+   - Visual indicator untuk sort direction
+   - SortableHeader component untuk header
+
+3. **Added Category Filter** - Filter berdasarkan kategori produk:
+   - Dropdown filter dengan semua kategori
+   - Tombol "Semua" untuk menampilkan semua item
+   - Menampilkan jumlah item yang difilter
+   - Menggunakan kategori dari products data
+
+4. **Added Summary Section** - Ringkasan total di bagian bawah tabel:
+   - Total Item
+   - Total Subtotal
+   - Total PPN
+   - Grand Total
+
+5. **Added FULFILLMENT_STATUS_COLORS constant** di constants.ts:
+   - Warna badge untuk status fulfillment
+   - UNFULFILLED: Merah
+   - PARTIAL: Kuning
+   - FULFILLED: Hijau
+
+6. **Enriched Items with Category** - Item diperkaya dengan kategori dari products:
+   - Mapping productId ke category
+   - Display kategori di tabel dan badge
+
+### Files Modified:
+- `/home/z/my-project/src/app/(authenticated)/transactions/page.tsx`
+- `/home/z/my-project/src/lib/constants.ts`
+
+### Build Status:
+- Build berhasil tanpa error
+- Semua halaman static rendering berhasil

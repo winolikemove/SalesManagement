@@ -108,6 +108,12 @@ export const FULFILLMENT_STATUS_LABELS: Record<string, string> = {
   FULFILLED: 'Terpenuhi',
 }
 
+export const FULFILLMENT_STATUS_COLORS: Record<string, string> = {
+  UNFULFILLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  PARTIAL: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  FULFILLED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+}
+
 // ============ Target Types ============
 export const TARGET_TYPES = {
   COMPANY: 'COMPANY',

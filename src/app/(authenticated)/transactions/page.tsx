@@ -2,8 +2,8 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package } from 'lucide-react'
+import { ColumnDef, ColumnFiltersState, SortingState } from '@tanstack/react-table'
+import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,9 +12,9 @@ import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
-import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
+import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS, FULFILLMENT_STATUS_LABELS, FULFILLMENT_STATUS_COLORS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
-import { useSalesNames, usePaymentMethods, useTaxRate } from '@/hooks/use-settings'
+import { useSalesNames, usePaymentMethods, useTaxRate, useProductCategories } from '@/hooks/use-settings'
 import { api } from '@/lib/api'
 import type { Transaction, TransactionItem, Customer, Product } from '@/types'
 
@@ -423,6 +423,326 @@ function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, lo
   )
 }
 
+// ============ Transaction Items Table Component ============
+interface TransactionItemWithCategory extends TransactionItem {
+  category?: string
+}
+
+interface TransactionItemsTableProps {
+  items: TransactionItemWithCategory[]
+  products: Product[]
+  categories: string[]
+}
+
+function TransactionItemsTable({ items, products, categories }: TransactionItemsTableProps) {
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
+
+  // Enrich items with category from products
+  const enrichedItems = React.useMemo(() => {
+    return items.map(item => {
+      const product = products.find(p => p.id === item.productId)
+      return {
+        ...item,
+        category: product?.category || 'Unknown'
+      }
+    })
+  }, [items, products])
+
+  // Filter items by category
+  const filteredItems = React.useMemo(() => {
+    if (selectedCategory === 'all') return enrichedItems
+    return enrichedItems.filter(item => item.category === selectedCategory)
+  }, [enrichedItems, selectedCategory])
+
+  // Columns for transaction items
+  const columns: ColumnDef<TransactionItemWithCategory>[] = [
+    {
+      accessorKey: 'productCode',
+      header: ({ column }) => <SortableHeader column={column} title="Kode Produk" />,
+      cell: ({ row }) => (
+        <span className="font-medium text-xs">{row.getValue('productCode')}</span>
+      ),
+    },
+    {
+      accessorKey: 'productName',
+      header: ({ column }) => <SortableHeader column={column} title="Nama Produk" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-xs">{row.getValue('productName')}</p>
+          <p className="text-[10px] text-muted-foreground">{row.original.category}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'category',
+      header: 'Kategori',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="text-[10px]">{row.getValue('category')}</Badge>
+      ),
+    },
+    {
+      accessorKey: 'qtyOrderUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Qty Order" />,
+      cell: ({ row }) => (
+        <div className="text-xs">
+          <span className="font-medium">{row.getValue('qtyOrderUnit')}</span>
+          <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
+          <br/>
+          <span className="text-muted-foreground">{row.original.qtyOrderKg} {row.original.kgName}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'qtyFulfilledUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Qty Terkirim" />,
+      cell: ({ row }) => (
+        <div className="text-xs">
+          <span className="font-medium text-green-600">{row.getValue('qtyFulfilledUnit')}</span>
+          <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
+          <br/>
+          <span className="text-muted-foreground">{row.original.qtyFulfilledKg} {row.original.kgName}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'qtyUnfulfilledUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Qty Belum Terkirim" />,
+      cell: ({ row }) => {
+        const unfulfilled = row.getValue('qtyUnfulfilledUnit') as number
+        return (
+          <div className="text-xs">
+            <span className={unfulfilled > 0 ? 'font-medium text-red-600' : 'text-muted-foreground'}>{unfulfilled}</span>
+            <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
+            {unfulfilled > 0 && (
+              <>
+                <br/>
+                <span className="text-muted-foreground">{row.original.qtyUnfulfilledKg} {row.original.kgName}</span>
+              </>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'pricePerUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Harga/Unit" />,
+      cell: ({ row }) => formatCurrency(row.getValue('pricePerUnit')),
+    },
+    {
+      accessorKey: 'pricePerKg',
+      header: ({ column }) => <SortableHeader column={column} title="Harga/Kg" />,
+      cell: ({ row }) => formatCurrency(row.getValue('pricePerKg')),
+    },
+    {
+      accessorKey: 'subtotal',
+      header: ({ column }) => <SortableHeader column={column} title="Subtotal" />,
+      cell: ({ row }) => <span className="font-medium">{formatCurrency(row.getValue('subtotal'))}</span>,
+    },
+    {
+      accessorKey: 'taxAmount',
+      header: ({ column }) => <SortableHeader column={column} title="PPN" />,
+      cell: ({ row }) => {
+        const tax = row.getValue('taxAmount') as number
+        return tax > 0 ? formatCurrency(tax) : '-'
+      },
+    },
+    {
+      accessorKey: 'totalAmount',
+      header: ({ column }) => <SortableHeader column={column} title="Total" />,
+      cell: ({ row }) => <span className="font-bold">{formatCurrency(row.getValue('totalAmount'))}</span>,
+    },
+    {
+      accessorKey: 'fulfillmentStatus',
+      header: 'Status Fulfillment',
+      cell: ({ row }) => {
+        const status = row.getValue('fulfillmentStatus') as string
+        return (
+          <Badge className={FULFILLMENT_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'}>
+            {FULFILLMENT_STATUS_LABELS[status] || status}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'isPPN',
+      header: 'PPN',
+      cell: ({ row }) => (
+        <Badge variant={row.getValue('isPPN') ? 'default' : 'outline'}>
+          {row.getValue('isPPN') ? 'Ya' : 'Tidak'}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'notes',
+      header: 'Catatan',
+      cell: ({ row }) => {
+        const notes = row.getValue('notes') as string
+        return notes ? <span className="text-xs text-muted-foreground max-w-[100px] truncate block">{notes}</span> : '-'
+      },
+    },
+  ]
+
+  return (
+    <div className="space-y-3">
+      {/* Category Filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Filter Kategori:</span>
+        <div className="flex gap-1 flex-wrap">
+          <Button
+            variant={selectedCategory === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedCategory('all')}
+            className="h-7 text-xs"
+          >
+            Semua
+          </Button>
+          {categories.map(category => (
+            <Button
+              key={category}
+              variant={selectedCategory === category ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedCategory(category)}
+              className="h-7 text-xs"
+            >
+              {category}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Info */}
+      {selectedCategory !== 'all' && (
+        <div className="text-xs text-muted-foreground">
+          Menampilkan {filteredItems.length} dari {enrichedItems.length} item
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="rounded-md border overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="h-10 px-2 text-left font-medium">Kode Produk</th>
+              <th className="h-10 px-2 text-left font-medium">Nama Produk</th>
+              <th className="h-10 px-2 text-left font-medium">Kategori</th>
+              <th className="h-10 px-2 text-left font-medium">Qty Order</th>
+              <th className="h-10 px-2 text-left font-medium">Qty Terkirim</th>
+              <th className="h-10 px-2 text-left font-medium">Qty Belum</th>
+              <th className="h-10 px-2 text-right font-medium">Harga/Unit</th>
+              <th className="h-10 px-2 text-right font-medium">Harga/Kg</th>
+              <th className="h-10 px-2 text-right font-medium">Subtotal</th>
+              <th className="h-10 px-2 text-right font-medium">PPN</th>
+              <th className="h-10 px-2 text-right font-medium">Total</th>
+              <th className="h-10 px-2 text-center font-medium">Status</th>
+              <th className="h-10 px-2 text-center font-medium">PPN</th>
+              <th className="h-10 px-2 text-left font-medium">Catatan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredItems.length > 0 ? (
+              filteredItems.map((item, index) => (
+                <tr key={item.id || index} className="border-b hover:bg-muted/50">
+                  <td className="p-2 font-medium">{item.productCode}</td>
+                  <td className="p-2">
+                    <div>
+                      <p className="font-medium">{item.productName}</p>
+                      <p className="text-[10px] text-muted-foreground">{item.category}</p>
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <Badge variant="outline" className="text-[10px]">{item.category}</Badge>
+                  </td>
+                  <td className="p-2">
+                    <div>
+                      <span className="font-medium">{item.qtyOrderUnit}</span>
+                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
+                      <br/>
+                      <span className="text-muted-foreground">{item.qtyOrderKg} {item.kgName}</span>
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <div>
+                      <span className="font-medium text-green-600">{item.qtyFulfilledUnit}</span>
+                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
+                      <br/>
+                      <span className="text-muted-foreground">{item.qtyFulfilledKg} {item.kgName}</span>
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <div>
+                      <span className={item.qtyUnfulfilledUnit > 0 ? 'font-medium text-red-600' : 'text-muted-foreground'}>
+                        {item.qtyUnfulfilledUnit}
+                      </span>
+                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
+                      {item.qtyUnfulfilledUnit > 0 && (
+                        <>
+                          <br/>
+                          <span className="text-muted-foreground">{item.qtyUnfulfilledKg} {item.kgName}</span>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-2 text-right">{formatCurrency(item.pricePerUnit)}</td>
+                  <td className="p-2 text-right">{formatCurrency(item.pricePerKg)}</td>
+                  <td className="p-2 text-right font-medium">{formatCurrency(item.subtotal)}</td>
+                  <td className="p-2 text-right">{item.taxAmount > 0 ? formatCurrency(item.taxAmount) : '-'}</td>
+                  <td className="p-2 text-right font-bold">{formatCurrency(item.totalAmount)}</td>
+                  <td className="p-2 text-center">
+                    <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100 text-gray-800'}>
+                      {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
+                    </Badge>
+                  </td>
+                  <td className="p-2 text-center">
+                    <Badge variant={item.isPPN ? 'default' : 'outline'}>
+                      {item.isPPN ? 'Ya' : 'Tidak'}
+                    </Badge>
+                  </td>
+                  <td className="p-2 max-w-[100px]">
+                    {item.notes ? (
+                      <span className="text-muted-foreground truncate block">{item.notes}</span>
+                    ) : '-'}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={14} className="h-24 text-center text-muted-foreground">
+                  Tidak ada data untuk kategori ini
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-muted/50 rounded-lg p-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <span className="text-muted-foreground">Total Item:</span>
+            <span className="ml-2 font-medium">{filteredItems.length}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Total Subtotal:</span>
+            <span className="ml-2 font-medium">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.subtotal, 0))}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Total PPN:</span>
+            <span className="ml-2 font-medium">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.taxAmount, 0))}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Grand Total:</span>
+            <span className="ml-2 font-bold">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.totalAmount, 0))}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ============ Transactions Page ============
 export default function TransactionsPage() {
   const queryClient = useQueryClient()
@@ -430,6 +750,7 @@ export default function TransactionsPage() {
   const salesNames = useSalesNames()
   const paymentMethods = usePaymentMethods()
   const taxRateSetting = useTaxRate()
+  const categories = useProductCategories()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
@@ -705,36 +1026,38 @@ export default function TransactionsPage() {
       <ModalForm
         open={viewDialog}
         onOpenChange={setViewDialog}
-        title="Transaction Details"
-        maxWidth="lg"
+        title="Detail Transaksi"
+        maxWidth="2xl"
       >
         {detailedTransaction && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Transaction Header */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Invoice Number</p>
+                <p className="text-xs text-muted-foreground">Invoice Number</p>
                 <p className="font-medium">{detailedTransaction.invoiceNumber}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Customer</p>
+                <p className="text-xs text-muted-foreground">Customer</p>
                 <p className="font-medium">{detailedTransaction.customerName}</p>
+                <p className="text-xs text-muted-foreground">{detailedTransaction.customerCode}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Date</p>
+                <p className="text-xs text-muted-foreground">Date</p>
                 <p className="font-medium">{formatDateTime(detailedTransaction.invoiceDate)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Sales</p>
+                <p className="text-xs text-muted-foreground">Sales</p>
                 <p className="font-medium">{detailedTransaction.salesName}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Delivery Status</p>
+                <p className="text-xs text-muted-foreground">Delivery Status</p>
                 <Badge className={DELIVERY_STATUS_COLORS[detailedTransaction.deliveryStatus] || 'bg-gray-100 text-gray-800'}>
                   {DELIVERY_STATUS_LABELS[detailedTransaction.deliveryStatus] || detailedTransaction.deliveryStatus}
                 </Badge>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Payment Status</p>
+                <p className="text-xs text-muted-foreground">Payment Status</p>
                 <Badge className={PAYMENT_STATUS_COLORS[detailedTransaction.paymentStatus]}>
                   {PAYMENT_STATUS_LABELS[detailedTransaction.paymentStatus]}
                 </Badge>
@@ -743,23 +1066,19 @@ export default function TransactionsPage() {
 
             <Separator />
 
+            {/* Transaction Items Table */}
             <div>
-              <p className="font-medium mb-2">Items</p>
-              <div className="border rounded-lg divide-y">
-                {detailedTransaction.items?.map((item, index) => (
-                  <div key={index} className="flex justify-between p-3">
-                    <div>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.qtyOrderUnit} {item.unitName} x {formatCurrency(item.pricePerUnit)}
-                      </p>
-                    </div>
-                    <p className="font-medium">{formatCurrency(item.subtotal)}</p>
-                  </div>
-                ))}
-              </div>
+              <h4 className="font-medium mb-3">Item Transaksi</h4>
+              <TransactionItemsTable
+                items={detailedTransaction.items || []}
+                products={products}
+                categories={categories}
+              />
             </div>
 
+            <Separator />
+
+            {/* Transaction Summary */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
@@ -786,7 +1105,7 @@ export default function TransactionsPage() {
               </div>
               <div className="flex justify-between">
                 <span>Remaining</span>
-                <span className={detailedTransaction.remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}>
+                <span className={detailedTransaction.remainingAmount > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
                   {formatCurrency(detailedTransaction.remainingAmount)}
                 </span>
               </div>
@@ -794,12 +1113,12 @@ export default function TransactionsPage() {
 
             {detailedTransaction.notes && (
               <div>
-                <p className="text-sm text-muted-foreground">Notes</p>
+                <p className="text-xs text-muted-foreground">Notes</p>
                 <p className="text-sm">{detailedTransaction.notes}</p>
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setViewDialog(false)}>Close</Button>
               <Button onClick={() => { 
                 setViewDialog(false); 
