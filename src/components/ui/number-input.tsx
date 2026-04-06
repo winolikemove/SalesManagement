@@ -23,8 +23,13 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
       if (value === 0 || value === null || value === undefined) {
         setDisplayValue('')
       } else if (allowDecimal) {
-        // Always show 2 decimal places for decimal values
-        setDisplayValue(value.toFixed(2))
+        // Truncate to 2 decimal places (not round)
+        const truncated = Math.floor(value * 100) / 100
+        // Format: show 2 decimal places
+        const parts = String(truncated).split('.')
+        const integer = parts[0]
+        const decimal = (parts[1] || '').padEnd(2, '0').slice(0, 2)
+        setDisplayValue(`${integer}.${decimal}`)
       } else {
         setDisplayValue(String(value))
       }

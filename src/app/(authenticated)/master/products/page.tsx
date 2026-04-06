@@ -61,9 +61,8 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
 
   // Handler untuk perhitungan otomatis satu arah
   // Price per Unit = Weight × Price per Kg (auto-calculated, read-only)
-  // Dibulatkan ke 2 desimal
   const handleUnitWeightChange = (value: number) => {
-    const pricePerUnit = Math.round(value * formData.basePricePerKg * 100) / 100
+    const pricePerUnit = value * formData.basePricePerKg
     setFormData(prev => ({ 
       ...prev, 
       baseUnitWeight: value,
@@ -72,7 +71,7 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
   }
 
   const handlePricePerKgChange = (value: number) => {
-    const pricePerUnit = Math.round(formData.baseUnitWeight * value * 100) / 100
+    const pricePerUnit = formData.baseUnitWeight * value
     setFormData(prev => ({ 
       ...prev, 
       basePricePerKg: value,
