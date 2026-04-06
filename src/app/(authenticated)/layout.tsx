@@ -32,24 +32,31 @@ export default function AuthenticatedLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, isAuthenticated, isInitialized, isLoading, initialize, checkAuth } = useAuthStore()
+  const { user, isAuthenticated, isInitialized, initialize } = useAuthStore()
+  const [mounted, setMounted] = React.useState(false)
 
+  // Handle mount
   React.useEffect(() => {
-    if (!isInitialized) {
+    setMounted(true)
+  }, [])
+
+  // Initialize auth state
+  React.useEffect(() => {
+    if (mounted && !isInitialized) {
       initialize()
     }
-  }, [isInitialized, initialize])
+  }, [mounted, isInitialized, initialize])
 
+  // Handle redirect
   React.useEffect(() => {
-    if (isInitialized && !isAuthenticated) {
-      // Redirect to login if not authenticated
+    if (mounted && isInitialized && !isAuthenticated) {
       const currentPath = pathname !== '/login' ? `?redirect=${encodeURIComponent(pathname)}` : ''
       router.push(`/login${currentPath}`)
     }
-  }, [isInitialized, isAuthenticated, router, pathname])
+  }, [mounted, isInitialized, isAuthenticated, router, pathname])
 
-  // Show loading screen while initializing
-  if (!isInitialized || isLoading) {
+  // Show loading screen while mounting or initializing
+  if (!mounted || !isInitialized) {
     return <AuthLoadingScreen />
   }
 

@@ -401,14 +401,14 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden md:flex flex-col border-r bg-sidebar transition-all duration-300',
+        'relative hidden md:flex flex-col border-r bg-sidebar transition-all duration-300',
         collapsed ? 'w-[68px]' : 'w-64'
       )}
     >
       <SidebarContent collapsed={collapsed} />
       <button
         onClick={toggle}
-        className="absolute right-[-12px] top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent"
+        className="absolute right-[-12px] top-20 z-50 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent hidden md:flex"
       >
         <ChevronRight
           className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')}
