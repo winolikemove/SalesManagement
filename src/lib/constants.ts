@@ -173,13 +173,16 @@ export const TRANSACTION_STATUS_COLORS: Record<string, string> = {
 
 // ============ Default Categories ============
 export const DEFAULT_CATEGORIES = [
-  'Halal Beef',
-  'Halal Chicken',
-  'Imported Beef',
-  'Smoked Meat',
-  'Sausage',
-  'Deli Meat',
-  'Frozen Food',
+  'Sosis',
+  'French Fries',
+  'Ikan Dori',
+  'Shortplate',
+  'Nugget',
+  'Bakso',
+  'Dimsum',
+  'Daging Ayam',
+  'Daging Sapi',
+  'Seafood',
   'Lainnya',
 ]
 
@@ -201,13 +204,13 @@ export const DEFAULT_VEHICLE_TYPES = [
 
 // ============ Default Units ============
 export const DEFAULT_UNITS = [
-  'PACK',
-  'KG',
-  'BUAH',
-  'DUS',
-  'PIECE',
-  'BOX',
-  'LAINNYA',
+  'Pack',
+  'Box',
+  'Jar',
+  'Whole',
+  'Kg',
+  'Pcs',
+  'Lainnya',
 ]
 
 // ============ Number Formatting ============
