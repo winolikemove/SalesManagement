@@ -1,138 +1,149 @@
 // =============================================
-// APP STORE - General Application State
+// APP STORE - Global Application State
 // =============================================
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppConfig } from '@/types'
+
+interface Breadcrumb {
+  title: string
+  href?: string
+}
 
 interface AppState {
-  // Config
-  config: AppConfig | null
-  isLoadingConfig: boolean
-
-  // UI State
+  // Mock Mode
+  isMockMode: boolean
+  toggleMockMode: () => void
+  setMockMode: (value: boolean) => void
+  
+  // Sidebar
+  sidebarOpen: boolean
   sidebarCollapsed: boolean
-  sidebarOpen: boolean // For mobile
-  theme: 'light' | 'dark' | 'system'
-
-  // Page State
-  pageTitle: string
-  breadcrumbs: { title: string; href?: string }[]
-
-  // Actions
-  setConfig: (config: AppConfig | null) => void
-  setLoadingConfig: (loading: boolean) => void
-  toggleSidebar: () => void
-  setSidebarCollapsed: (collapsed: boolean) => void
   setSidebarOpen: (open: boolean) => void
+  setSidebarCollapsed: (collapsed: boolean) => void
+  toggleSidebar: () => void
+  
+  // Theme
+  theme: 'light' | 'dark' | 'system'
   setTheme: (theme: 'light' | 'dark' | 'system') => void
+  
+  // Page Header
+  pageTitle: string
+  breadcrumbs: Breadcrumb[]
   setPageTitle: (title: string) => void
-  setBreadcrumbs: (breadcrumbs: { title: string; href?: string }[]) => void
+  setBreadcrumbs: (breadcrumbs: Breadcrumb[]) => void
+  
+  // Global Loading
+  isGlobalLoading: boolean
+  setGlobalLoading: (loading: boolean) => void
+  
+  // Notifications
+  notifications: Notification[]
+  addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void
+  removeNotification: (id: string) => void
+  clearNotifications: () => void
+  
+  // App Config (from backend)
+  appConfig: Record<string, unknown>
+  setAppConfig: (config: Record<string, unknown>) => void
+}
 
-  // Modal State
-  activeModal: string | null
-  modalData: unknown
-  openModal: (modalId: string, data?: unknown) => void
-  closeModal: () => void
+interface Notification {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message?: string
+  read: boolean
+  createdAt: string
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
-      // Config
-      config: null,
-      isLoadingConfig: false,
-
-      // UI State
+    (set, get) => ({
+      // Mock Mode - Default to TRUE for testing
+      isMockMode: true,
+      toggleMockMode: () => set((state) => ({ isMockMode: !state.isMockMode })),
+      setMockMode: (value) => set({ isMockMode: value }),
+      
+      // Sidebar
+      sidebarOpen: true,
       sidebarCollapsed: false,
-      sidebarOpen: false,
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      
+      // Theme
       theme: 'system',
-
-      // Page State
+      setTheme: (theme) => set({ theme }),
+      
+      // Page Header
       pageTitle: 'Dashboard',
       breadcrumbs: [],
-
-      // Actions
-      setConfig: (config) => set({ config }),
-      setLoadingConfig: (isLoadingConfig) => set({ isLoadingConfig }),
-
-      toggleSidebar: () =>
-        set((state) => {
-          if (typeof window !== 'undefined' && window.innerWidth < 768) {
-            return { sidebarOpen: !state.sidebarOpen }
-          }
-          return { sidebarCollapsed: !state.sidebarCollapsed }
-        }),
-
-      setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
-
-      setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
-
-      setTheme: (theme) => {
-        set({ theme })
-
-        if (typeof window !== 'undefined') {
-          const root = document.documentElement
-          root.classList.remove('light', 'dark')
-
-          if (theme === 'system') {
-            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light'
-            root.classList.add(systemTheme)
-          } else {
-            root.classList.add(theme)
-          }
-        }
-      },
-
-      setPageTitle: (pageTitle) => set({ pageTitle }),
-
+      setPageTitle: (title) => set({ pageTitle: title }),
       setBreadcrumbs: (breadcrumbs) => set({ breadcrumbs }),
-
-      // Modal State
-      activeModal: null,
-      modalData: null,
-
-      openModal: (modalId, data) =>
-        set({
-          activeModal: modalId,
-          modalData: data,
-        }),
-
-      closeModal: () =>
-        set({
-          activeModal: null,
-          modalData: null,
-        }),
+      
+      // Global Loading
+      isGlobalLoading: false,
+      setGlobalLoading: (loading) => set({ isGlobalLoading: loading }),
+      
+      // Notifications
+      notifications: [],
+      addNotification: (notification) => {
+        const newNotification: Notification = {
+          ...notification,
+          id: 'notif-' + Date.now(),
+          read: false,
+          createdAt: new Date().toISOString()
+        }
+        set((state) => ({
+          notifications: [newNotification, ...state.notifications].slice(0, 50) // Keep last 50
+        }))
+      },
+      removeNotification: (id) => {
+        set((state) => ({
+          notifications: state.notifications.filter((n) => n.id !== id)
+        }))
+      },
+      clearNotifications: () => set({ notifications: [] }),
+      
+      // App Config
+      appConfig: {},
+      setAppConfig: (config) => set({ appConfig: config })
     }),
     {
       name: 'app-storage',
       partialize: (state) => ({
+        isMockMode: state.isMockMode,
+        sidebarOpen: state.sidebarOpen,
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
-      }),
+        appConfig: state.appConfig
+      })
     }
   )
 )
 
-// Hook for sidebar state
-export const useSidebar = () => {
-  const collapsed = useAppStore((state) => state.sidebarCollapsed)
-  const open = useAppStore((state) => state.sidebarOpen)
-  const toggle = useAppStore((state) => state.toggleSidebar)
-  const setCollapsed = useAppStore((state) => state.setSidebarCollapsed)
-  const setOpen = useAppStore((state) => state.setSidebarOpen)
+// Hook for checking mock mode
+export const useMockMode = (): boolean => {
+  return useAppStore((state) => state.isMockMode)
+}
 
-  return { collapsed, open, toggle, setCollapsed, setOpen }
+// Hook for sidebar
+export const useSidebar = () => {
+  const open = useAppStore((state) => state.sidebarOpen)
+  const collapsed = useAppStore((state) => state.sidebarCollapsed)
+  const setOpen = useAppStore((state) => state.setSidebarOpen)
+  const setCollapsed = useAppStore((state) => state.setSidebarCollapsed)
+  const toggle = useAppStore((state) => state.toggleSidebar)
+  
+  return { open, collapsed, setOpen, setCollapsed, toggle }
 }
 
 // Hook for theme
-export const useTheme = () => {
+export const useThemeState = () => {
   const theme = useAppStore((state) => state.theme)
   const setTheme = useAppStore((state) => state.setTheme)
-
+  
   return { theme, setTheme }
 }
 
@@ -142,21 +153,6 @@ export const usePageHeader = () => {
   const breadcrumbs = useAppStore((state) => state.breadcrumbs)
   const setPageTitle = useAppStore((state) => state.setPageTitle)
   const setBreadcrumbs = useAppStore((state) => state.setBreadcrumbs)
-
+  
   return { pageTitle, breadcrumbs, setPageTitle, setBreadcrumbs }
-}
-
-// Hook for modal
-export const useModal = (modalId: string) => {
-  const activeModal = useAppStore((state) => state.activeModal)
-  const modalData = useAppStore((state) => state.modalData)
-  const openModal = useAppStore((state) => state.openModal)
-  const closeModal = useAppStore((state) => state.closeModal)
-
-  return {
-    isOpen: activeModal === modalId,
-    data: modalData,
-    open: (data?: unknown) => openModal(modalId, data),
-    close: closeModal,
-  }
 }

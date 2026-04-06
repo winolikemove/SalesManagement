@@ -9,7 +9,7 @@ export const API_CONFIG = {
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000,
   TOKEN_REFRESH_THRESHOLD: 5 * 60 * 1000, // 5 minutes before expiry
-};
+}
 
 // ============ Storage Keys ============
 export const STORAGE_KEYS = {
@@ -20,164 +20,141 @@ export const STORAGE_KEYS = {
   THEME: 'theme',
   SIDEBAR_COLLAPSED: 'sidebar_collapsed',
   REMEMBER_ME: 'remember_me',
-};
+  MOCK_MODE: 'mock_mode',
+}
 
 // ============ User Roles ============
 export const USER_ROLES = {
-  ADMIN: 'admin',
-  MANAGER: 'manager',
-  SALES: 'sales',
-  DRIVER: 'driver',
-  CASHIER: 'cashier',
-} as const;
+  SUPER_ADMIN: 'SuperAdmin',
+  MANAGER: 'Manager',
+  SALES: 'Sales',
+  DRIVER: 'Driver',
+  CASHIER: 'Cashier',
+} as const
 
 export const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrator',
-  manager: 'Manager',
-  sales: 'Sales',
-  driver: 'Driver',
-  cashier: 'Cashier',
-};
+  SuperAdmin: 'Super Admin',
+  Manager: 'Manager',
+  Sales: 'Sales',
+  Driver: 'Driver',
+  Cashier: 'Kasir',
+}
 
 // ============ Payment Status ============
 export const PAYMENT_STATUS = {
-  PENDING: 'pending',
-  PARTIAL: 'partial',
-  PAID: 'paid',
-  OVERDUE: 'overdue',
-} as const;
+  UNPAID: 'UNPAID',
+  PARTIAL: 'PARTIAL',
+  PAID: 'PAID',
+} as const
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  partial: 'Partial',
-  paid: 'Paid',
-  overdue: 'Overdue',
-};
+  UNPAID: 'Belum Bayar',
+  PARTIAL: 'Sebagian',
+  PAID: 'Lunas',
+}
 
 export const PAYMENT_STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  partial: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  paid: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  overdue: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-};
-
-// ============ Transaction Status ============
-export const TRANSACTION_STATUS = {
-  DRAFT: 'draft',
-  CONFIRMED: 'confirmed',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-} as const;
-
-export const TRANSACTION_STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  confirmed: 'Confirmed',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
-
-export const TRANSACTION_STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-  confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-};
+  UNPAID: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  PARTIAL: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  PAID: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+}
 
 // ============ Delivery Status ============
 export const DELIVERY_STATUS = {
-  PENDING: 'pending',
-  ASSIGNED: 'assigned',
-  IN_TRANSIT: 'in_transit',
-  DELIVERED: 'delivered',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
-} as const;
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  ON_DELIVERY: 'ON_DELIVERY',
+  DELIVERED: 'DELIVERED',
+  PARTIAL: 'PARTIAL',
+  FAILED: 'FAILED',
+} as const
 
 export const DELIVERY_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  assigned: 'Assigned',
-  in_transit: 'In Transit',
-  delivered: 'Delivered',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
+  PENDING: 'Menunggu',
+  PROCESSING: 'Diproses',
+  ON_DELIVERY: 'Dalam Pengiriman',
+  DELIVERED: 'Terkirim',
+  PARTIAL: 'Sebagian Terkirim',
+  FAILED: 'Gagal',
+}
 
 export const DELIVERY_STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  assigned: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  in_transit: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  delivered: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
-};
+  PENDING: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  PROCESSING: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  ON_DELIVERY: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  DELIVERED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  PARTIAL: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  FAILED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+}
+
+// ============ Fulfillment Status ============
+export const FULFILLMENT_STATUS = {
+  UNFULFILLED: 'UNFULFILLED',
+  PARTIAL: 'PARTIAL',
+  FULFILLED: 'FULFILLED',
+} as const
+
+export const FULFILLMENT_STATUS_LABELS: Record<string, string> = {
+  UNFULFILLED: 'Belum Terpenuhi',
+  PARTIAL: 'Sebagian',
+  FULFILLED: 'Terpenuhi',
+}
 
 // ============ Target Types ============
 export const TARGET_TYPES = {
-  REVENUE: 'revenue',
-  QUANTITY: 'quantity',
-  CUSTOMER: 'customer',
-  PRODUCT: 'product',
-} as const;
+  COMPANY: 'COMPANY',
+  SALES: 'SALES',
+  PRODUCT: 'PRODUCT',
+  CUSTOMER: 'CUSTOMER',
+} as const
 
 export const TARGET_TYPE_LABELS: Record<string, string> = {
-  revenue: 'Revenue Target',
-  quantity: 'Quantity Target',
-  customer: 'Customer Target',
-  product: 'Product Target',
-};
-
-// ============ Target Periods ============
-export const TARGET_PERIODS = {
-  DAILY: 'daily',
-  WEEKLY: 'weekly',
-  MONTHLY: 'monthly',
-  YEARLY: 'yearly',
-} as const;
-
-export const TARGET_PERIOD_LABELS: Record<string, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-  yearly: 'Yearly',
-};
+  COMPANY: 'Target Perusahaan',
+  SALES: 'Target Sales',
+  PRODUCT: 'Target Produk',
+  CUSTOMER: 'Target Customer',
+}
 
 // ============ Default Categories ============
 export const DEFAULT_CATEGORIES = [
-  'Electronics',
-  'Furniture',
-  'Clothing',
-  'Food & Beverage',
-  'Office Supplies',
-  'Tools & Equipment',
-  'Raw Materials',
-  'Packaging',
-  'Other',
-];
+  'Semen',
+  'Bata',
+  'Besi',
+  'Pasir',
+  'Keramik',
+  'Cat',
+  'Atap',
+  'Pipa',
+  'Lainnya',
+]
 
 // ============ Default Payment Methods ============
 export const DEFAULT_PAYMENT_METHODS = [
   'Cash',
-  'Bank Transfer',
-  'Credit Card',
-  'Debit Card',
+  'Transfer Bank',
+  'Giro',
   'E-Wallet',
-  'Cheque',
-  'COD',
-];
+]
+
+// ============ Default Vehicle Types ============
+export const DEFAULT_VEHICLE_TYPES = [
+  'Truk Box',
+  'Truk CDE',
+  'Pickup',
+  'Tronton',
+]
 
 // ============ Default Units ============
 export const DEFAULT_UNITS = [
-  'pcs',
-  'box',
-  'carton',
+  'sak',
+  'buah',
+  'batang',
+  'kubik',
+  'dus',
+  'pail',
+  'lembar',
   'kg',
-  'liter',
-  'meter',
-  'set',
-  'pack',
-  'dozen',
-  'roll',
-];
+]
 
 // ============ Number Formatting ============
 export const CURRENCY = {
@@ -185,7 +162,7 @@ export const CURRENCY = {
   CODE: 'IDR',
   SYMBOL: 'Rp',
   DECIMALS: 0,
-};
+}
 
 // ============ Date Formatting ============
 export const DATE_FORMAT = {
@@ -194,21 +171,21 @@ export const DATE_FORMAT = {
   INPUT: 'yyyy-MM-dd',
   TIME: 'HH:mm',
   MONTH_YEAR: 'MMMM yyyy',
-};
+}
 
 // ============ Pagination ============
 export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 10,
   PAGE_SIZE_OPTIONS: [10, 25, 50, 100],
   MAX_PAGE_SIZE: 1000,
-};
+}
 
 // ============ File Upload ============
 export const FILE_UPLOAD = {
   MAX_SIZE: 1024 * 1024, // 1MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   ALLOWED_DOC_TYPES: ['application/pdf', 'application/msword'],
-};
+}
 
 // ============ Validation Rules ============
 export const VALIDATION = {
@@ -220,7 +197,7 @@ export const VALIDATION = {
   PHONE_MAX_LENGTH: 20,
   EMAIL_MAX_LENGTH: 255,
   NOTES_MAX_LENGTH: 1000,
-};
+}
 
 // ============ Navigation Items ============
 export const NAV_ITEMS = [
@@ -230,12 +207,12 @@ export const NAV_ITEMS = [
     icon: 'LayoutDashboard',
   },
   {
-    title: 'Transactions',
+    title: 'Transaksi',
     href: '/transactions',
     icon: 'Receipt',
   },
   {
-    title: 'Deliveries',
+    title: 'Pengiriman',
     href: '/deliveries',
     icon: 'Truck',
   },
@@ -249,25 +226,25 @@ export const NAV_ITEMS = [
       { title: 'Products', href: '/master/products', icon: 'Package' },
       { title: 'Drivers', href: '/master/drivers', icon: 'User' },
       { title: 'Vehicles', href: '/master/vehicles', icon: 'Car' },
-      { title: 'Customer Prices', href: '/master/prices', icon: 'Tag' },
+      { title: 'Harga Customer', href: '/master/prices', icon: 'Tag' },
     ],
   },
   {
-    title: 'Targets',
+    title: 'Target',
     href: '/targets',
     icon: 'Target',
   },
   {
-    title: 'Reports',
+    title: 'Laporan',
     href: '/reports',
     icon: 'BarChart3',
   },
   {
-    title: 'Settings',
+    title: 'Pengaturan',
     href: '/settings',
     icon: 'Settings',
   },
-];
+]
 
 // ============ Chart Colors ============
 export const CHART_COLORS = [
@@ -276,4 +253,4 @@ export const CHART_COLORS = [
   'hsl(var(--chart-3))',
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))',
-];
+]

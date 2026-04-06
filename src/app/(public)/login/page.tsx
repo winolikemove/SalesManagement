@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,16 +13,18 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle, Eye, EyeOff, Loader2, Info, TestTube } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
+import { useAppStore } from '@/stores/app-store'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
 
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, isLoading, error, setError, isAuthenticated } = useAuthStore()
+  const { isMockMode, toggleMockMode } = useAppStore()
 
   const [username, setUsername] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -45,11 +46,19 @@ export default function LoginPage() {
     }
   }, [username, password])
 
+  // Auto-fill demo credentials in mock mode
+  React.useEffect(() => {
+    if (isMockMode && !username) {
+      setUsername('admin')
+      setPassword('admin123')
+    }
+  }, [isMockMode])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!username || !password) {
-      setError('Please enter both username and password')
+      setError('Mohon masukkan username dan password')
       return
     }
 
@@ -61,6 +70,11 @@ export default function LoginPage() {
     }
   }
 
+  const fillDemoCredentials = () => {
+    setUsername('admin')
+    setPassword('admin123')
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <div className="w-full max-w-md space-y-8">
@@ -70,16 +84,41 @@ export default function LoginPage() {
             T
           </div>
           <h1 className="text-3xl font-bold">TransMan</h1>
-          <p className="text-muted-foreground mt-2">Sales Management System</p>
+          <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
         </div>
+
+        {/* Mock Mode Indicator */}
+        {isMockMode && (
+          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+            <TestTube className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertTitle className="text-blue-800 dark:text-blue-200">Mode Demo Aktif</AlertTitle>
+            <AlertDescription className="text-blue-700 dark:text-blue-300">
+              Anda sedang menggunakan data dummy untuk testing. Kredensial demo sudah terisi otomatis.
+              <Button
+                variant="link"
+                className="p-0 h-auto ml-1 text-blue-600 dark:text-blue-400"
+                onClick={fillDemoCredentials}
+              >
+                Reset kredensial
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Login Card */}
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Sign in</CardTitle>
-            <CardDescription className="text-center">
-              Enter your credentials to access your account
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">Masuk</CardTitle>
+                <CardDescription>
+                  Masukkan kredensial untuk mengakses akun Anda
+                </CardDescription>
+              </div>
+              <Badge variant={isMockMode ? "default" : "secondary"}>
+                {isMockMode ? 'Demo' : 'Live'}
+              </Badge>
+            </div>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
@@ -92,13 +131,27 @@ export default function LoginPage() {
                 </Alert>
               )}
 
+              {/* Demo Credentials Info (Mock Mode Only) */}
+              {isMockMode && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Demo Credentials</AlertTitle>
+                  <AlertDescription>
+                    <div className="mt-2 text-sm">
+                      <p><strong>Username:</strong> admin</p>
+                      <p><strong>Password:</strong> admin123</p>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Username */}
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder="Masukkan username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={isLoading}
@@ -113,7 +166,7 @@ export default function LoginPage() {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
+                    placeholder="Masukkan password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
@@ -134,7 +187,7 @@ export default function LoginPage() {
                       <Eye className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span className="sr-only">
-                      {showPassword ? 'Hide password' : 'Show password'}
+                      {showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                     </span>
                   </Button>
                 </div>
@@ -153,7 +206,7 @@ export default function LoginPage() {
                     htmlFor="remember"
                     className="text-sm font-normal cursor-pointer"
                   >
-                    Remember me
+                    Ingat saya
                   </Label>
                 </div>
               </div>
@@ -164,27 +217,46 @@ export default function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    Memproses...
                   </>
                 ) : (
-                  'Sign in'
+                  'Masuk'
                 )}
               </Button>
+
+              {/* Toggle Mock Mode */}
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span>Mode: {isMockMode ? 'Demo' : 'Production'}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleMockMode}
+                  className="h-auto py-1 px-2 text-xs"
+                >
+                  Ganti ke {isMockMode ? 'Production' : 'Demo'}
+                </Button>
+              </div>
             </CardFooter>
           </form>
         </Card>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-muted-foreground">
-          By signing in, you agree to our{' '}
-          <Link href="#" className="underline hover:text-primary">
-            Terms of Service
-          </Link>{' '}
-          and{' '}
-          <Link href="#" className="underline hover:text-primary">
-            Privacy Policy
-          </Link>
-        </p>
+        {/* Available Users (Mock Mode) */}
+        {isMockMode && (
+          <Card className="bg-muted/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Akun Demo Tersedia</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <div className="space-y-1">
+                <p><strong>SuperAdmin:</strong> admin / admin123</p>
+                <p><strong>Sales:</strong> sales1 / admin123</p>
+                <p><strong>Manager:</strong> manager / admin123</p>
+                <p><strong>Driver:</strong> driver1 / admin123</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

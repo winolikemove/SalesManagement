@@ -1,21 +1,30 @@
 // =============================================
-// API SERVICE LAYER FOR GOOGLE APPS SCRIPT BACKEND
+// API SERVICE LAYER - Unified API with Mock Support
 // =============================================
 
 import { API_CONFIG, STORAGE_KEYS } from './constants'
-import type { ApiResponse, AuthTokens } from '@/types'
+import type { ApiResponse, AuthTokens, User, LoginCredentials } from '@/types'
+
+// ============ Mock API Import ============
+import mockApi from './mock-api'
 
 // ============ Types ============
 interface ApiRequestOptions {
   action: string
   data?: Record<string, unknown>
-  auth?: { token: string }
   skipAuth?: boolean
 }
 
 interface FetchWithRetryOptions extends RequestInit {
   maxRetries?: number
   retryDelay?: number
+}
+
+// ============ Mock Mode Check ============
+export const isMockModeEnabled = (): boolean => {
+  if (typeof window === 'undefined') return true // Default to mock on SSR
+  const stored = localStorage.getItem(STORAGE_KEYS.MOCK_MODE)
+  return stored !== 'false' // Default to true if not set
 }
 
 // ============ Token Management ============
@@ -93,14 +102,12 @@ export class ApiError extends Error {
 function parseErrorResponse(response: Response, text: string): ApiError {
   // Check if response is HTML (GAS error page)
   if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-    // Extract error message from HTML if possible
     const titleMatch = text.match(/<title>([^<]*)<\/title>/i)
     const errorMessage = titleMatch ? titleMatch[1] : 'Server error occurred'
 
     return new ApiError(`Server Error: ${errorMessage}`, response.status, 'SERVER_ERROR')
   }
 
-  // Try to parse JSON error
   try {
     const jsonError = JSON.parse(text)
     return new ApiError(
@@ -126,17 +133,14 @@ async function fetchWithRetry(
     try {
       const response = await fetch(url, fetchOptions)
 
-      // Don't retry on client errors (4xx)
       if (response.status >= 400 && response.status < 500) {
         return response
       }
 
-      // Retry on server errors (5xx) or network issues
       if (response.ok || attempt === maxRetries) {
         return response
       }
 
-      // Wait before retrying
       await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)))
     } catch (error) {
       lastError = error as Error
@@ -161,7 +165,6 @@ let isRefreshing = false
 let refreshPromise: Promise<string | null> | null = null
 
 async function refreshToken(): Promise<string | null> {
-  // If already refreshing, wait for the result
   if (isRefreshing && refreshPromise) {
     return refreshPromise
   }
@@ -201,7 +204,7 @@ async function refreshToken(): Promise<string | null> {
       const newTokens: AuthTokens = {
         token: result.token,
         refreshToken: result.refreshToken || tokens.refreshToken,
-        expiresAt: Date.now() + 3600000, // 1 hour default
+        expiresAt: Date.now() + 3600000,
       }
 
       TokenManager.setTokens(newTokens)
@@ -218,13 +221,10 @@ async function refreshToken(): Promise<string | null> {
   return refreshPromise
 }
 
-// ============ Main API Call Function ============
-export async function apiCall<T = unknown>(
-  options: ApiRequestOptions
-): Promise<ApiResponse<T>> {
+// ============ Real API Call (GAS Backend) ============
+async function realApiCall<T = unknown>(options: ApiRequestOptions): Promise<ApiResponse<T>> {
   const { action, data = {}, skipAuth = false } = options
 
-  // Get or refresh token
   let token: string | null = null
   if (!skipAuth) {
     if (TokenManager.shouldRefreshToken()) {
@@ -241,7 +241,6 @@ export async function apiCall<T = unknown>(
     }
   }
 
-  // Prepare request body
   const body: Record<string, unknown> = {
     action,
     data,
@@ -254,16 +253,15 @@ export async function apiCall<T = unknown>(
   try {
     const response = await fetchWithRetry(API_CONFIG.BASE_URL, {
       method: 'POST',
-      redirect: 'follow', // Required for GAS
+      redirect: 'follow',
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8', // Required for GAS
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(body),
     })
 
     const text = await response.text()
 
-    // Handle HTML error responses from GAS
     if (text.includes('<!DOCTYPE') || text.includes('<html')) {
       const error = parseErrorResponse(response, text)
       return {
@@ -272,10 +270,8 @@ export async function apiCall<T = unknown>(
       }
     }
 
-    // Parse JSON response
     const result: ApiResponse<T> = JSON.parse(text)
 
-    // Handle API-level errors
     if (!response.ok || !result.success) {
       return {
         success: false,
@@ -283,7 +279,6 @@ export async function apiCall<T = unknown>(
       }
     }
 
-    // Update tokens if provided in response
     if (result.token) {
       const tokens: AuthTokens = {
         token: result.token,
@@ -309,11 +304,151 @@ export async function apiCall<T = unknown>(
   }
 }
 
-// ============ Convenience Methods ============
+// ============ Unified API Call ============
+async function apiCall<T = unknown>(options: ApiRequestOptions): Promise<ApiResponse<T>> {
+  // Check if mock mode is enabled
+  if (isMockModeEnabled()) {
+    return mockApiCall<T>(options)
+  }
+  
+  return realApiCall<T>(options)
+}
+
+// ============ Mock API Call Router ============
+async function mockApiCall<T = unknown>(options: ApiRequestOptions): Promise<ApiResponse<T>> {
+  const { action, data = {} } = options
+  
+  // Route to appropriate mock API handler
+  switch (action) {
+    // Auth
+    case 'auth.login':
+      return mockApi.auth.login(data as LoginCredentials) as Promise<ApiResponse<T>>
+    case 'auth.logout':
+      return mockApi.auth.logout() as Promise<ApiResponse<T>>
+    case 'auth.refreshToken':
+      return mockApi.auth.refreshToken() as Promise<ApiResponse<T>>
+    
+    // Users
+    case 'users.list':
+      return mockApi.users.list(data) as Promise<ApiResponse<T>>
+    case 'users.get':
+      return mockApi.users.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'users.create':
+      return mockApi.users.create(data) as Promise<ApiResponse<T>>
+    case 'users.update':
+      return mockApi.users.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'users.delete':
+      return mockApi.users.delete(data.id as string) as Promise<ApiResponse<T>>
+    
+    // Customers
+    case 'customers.list':
+      return mockApi.customers.list(data) as Promise<ApiResponse<T>>
+    case 'customers.get':
+      return mockApi.customers.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'customers.create':
+      return mockApi.customers.create(data) as Promise<ApiResponse<T>>
+    case 'customers.update':
+      return mockApi.customers.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'customers.delete':
+      return mockApi.customers.delete(data.id as string) as Promise<ApiResponse<T>>
+    
+    // Products
+    case 'products.list':
+      return mockApi.products.list(data) as Promise<ApiResponse<T>>
+    case 'products.get':
+      return mockApi.products.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'products.create':
+      return mockApi.products.create(data) as Promise<ApiResponse<T>>
+    case 'products.update':
+      return mockApi.products.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'products.delete':
+      return mockApi.products.delete(data.id as string) as Promise<ApiResponse<T>>
+    case 'products.getCustomerPrice':
+      return mockApi.products.getCustomerPrice(data.productId as string, data.customerId as string) as Promise<ApiResponse<T>>
+    
+    // Drivers
+    case 'drivers.list':
+      return mockApi.drivers.list(data) as Promise<ApiResponse<T>>
+    case 'drivers.get':
+      return mockApi.drivers.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'drivers.create':
+      return mockApi.drivers.create(data) as Promise<ApiResponse<T>>
+    case 'drivers.update':
+      return mockApi.drivers.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'drivers.delete':
+      return mockApi.drivers.delete(data.id as string) as Promise<ApiResponse<T>>
+    
+    // Vehicles
+    case 'vehicles.list':
+      return mockApi.vehicles.list(data) as Promise<ApiResponse<T>>
+    case 'vehicles.get':
+      return mockApi.vehicles.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'vehicles.create':
+      return mockApi.vehicles.create(data) as Promise<ApiResponse<T>>
+    case 'vehicles.update':
+      return mockApi.vehicles.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'vehicles.delete':
+      return mockApi.vehicles.delete(data.id as string) as Promise<ApiResponse<T>>
+    
+    // Transactions
+    case 'transactions.list':
+      return mockApi.transactions.list(data) as Promise<ApiResponse<T>>
+    case 'transactions.get':
+      return mockApi.transactions.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'transactions.create':
+      return mockApi.transactions.create(data) as Promise<ApiResponse<T>>
+    case 'transactions.updatePayment':
+      return mockApi.transactions.updatePayment(data.id as string, data) as Promise<ApiResponse<T>>
+    
+    // Deliveries
+    case 'deliveries.list':
+      return mockApi.deliveries.list(data) as Promise<ApiResponse<T>>
+    case 'deliveries.get':
+      return mockApi.deliveries.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'deliveries.updateStatus':
+      return mockApi.deliveries.updateStatus(data.id as string, data.status as string) as Promise<ApiResponse<T>>
+    
+    // Targets
+    case 'targets.list':
+      return mockApi.targets.list(data) as Promise<ApiResponse<T>>
+    case 'targets.create':
+      return mockApi.targets.create(data) as Promise<ApiResponse<T>>
+    
+    // Customer Prices
+    case 'customerPrices.list':
+      return mockApi.customerPrices.list(data) as Promise<ApiResponse<T>>
+    case 'customerPrices.create':
+      return mockApi.customerPrices.create(data) as Promise<ApiResponse<T>>
+    case 'customerPrices.update':
+      return mockApi.customerPrices.update(data.id as string, data) as Promise<ApiResponse<T>>
+    case 'customerPrices.delete':
+      return mockApi.customerPrices.delete(data.id as string) as Promise<ApiResponse<T>>
+    
+    // Config
+    case 'config.getPublic':
+      return mockApi.config.getPublic() as Promise<ApiResponse<T>>
+    case 'config.getAll':
+      return mockApi.config.getAll() as Promise<ApiResponse<T>>
+    case 'config.update':
+      return mockApi.config.update(data) as Promise<ApiResponse<T>>
+    
+    // Dashboard/Reports
+    case 'reports.dashboard':
+      return mockApi.dashboard.getStats() as Promise<ApiResponse<T>>
+    
+    default:
+      return {
+        success: false,
+        error: `Unknown action: ${action}`,
+      }
+  }
+}
+
+// ============ Convenience API Methods ============
 export const api = {
   // Auth
-  login: (username: string, password: string) =>
-    apiCall<{ user: unknown; token: string; refreshToken: string }>({
+  login: (username: string, password: string, rememberMe?: boolean) =>
+    apiCall<{ user: User; token: string; refreshToken: string }>({
       action: 'auth.login',
       data: { username, password },
       skipAuth: true,
@@ -328,235 +463,74 @@ export const api = {
       data: { refreshToken: TokenManager.getTokens()?.refreshToken },
     }),
 
-  changePassword: (oldPassword: string, newPassword: string) =>
-    apiCall({ action: 'auth.changePassword', data: { oldPassword, newPassword } }),
-
   // Config
-  getPublicConfig: () =>
-    apiCall({ action: 'config.getPublic', skipAuth: true }),
-
+  getPublicConfig: () => apiCall({ action: 'config.getPublic', skipAuth: true }),
   getAllConfig: () => apiCall({ action: 'config.getAll' }),
-
-  updateConfig: (data: Record<string, unknown>) =>
-    apiCall({ action: 'config.update', data }),
-
-  // Setup
-  initializeSetup: (data: Record<string, unknown>) =>
-    apiCall({ action: 'setup.initialize', data, skipAuth: true }),
-
-  validateSetup: () => apiCall({ action: 'setup.validate', skipAuth: true }),
-
-  getSetupStatus: () => apiCall({ action: 'setup.status', skipAuth: true }),
+  updateConfig: (data: Record<string, unknown>) => apiCall({ action: 'config.update', data }),
 
   // Users
-  getUsers: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'users.list', data: params }),
-
-  getUser: (id: string) =>
-    apiCall({ action: 'users.get', data: { id } }),
-
-  createUser: (data: Record<string, unknown>) =>
-    apiCall({ action: 'users.create', data }),
-
-  updateUser: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'users.update', data: { id, ...data } }),
-
-  deleteUser: (id: string) =>
-    apiCall({ action: 'users.delete', data: { id } }),
-
-  uploadUserPhoto: (id: string, photo: string) =>
-    apiCall({ action: 'users.uploadPhoto', data: { id, photo } }),
+  getUsers: (params?: Record<string, unknown>) => apiCall({ action: 'users.list', data: params }),
+  getUser: (id: string) => apiCall({ action: 'users.get', data: { id } }),
+  createUser: (data: Record<string, unknown>) => apiCall({ action: 'users.create', data }),
+  updateUser: (id: string, data: Record<string, unknown>) => apiCall({ action: 'users.update', data: { id, ...data } }),
+  deleteUser: (id: string) => apiCall({ action: 'users.delete', data: { id } }),
 
   // Customers
-  getCustomers: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'customers.list', data: params }),
-
-  getCustomer: (id: string) =>
-    apiCall({ action: 'customers.get', data: { id } }),
-
-  createCustomer: (data: Record<string, unknown>) =>
-    apiCall({ action: 'customers.create', data }),
-
-  updateCustomer: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'customers.update', data: { id, ...data } }),
-
-  deleteCustomer: (id: string) =>
-    apiCall({ action: 'customers.delete', data: { id } }),
-
-  searchCustomers: (query: string) =>
-    apiCall({ action: 'customers.search', data: { query } }),
+  getCustomers: (params?: Record<string, unknown>) => apiCall({ action: 'customers.list', data: params }),
+  getCustomer: (id: string) => apiCall({ action: 'customers.get', data: { id } }),
+  createCustomer: (data: Record<string, unknown>) => apiCall({ action: 'customers.create', data }),
+  updateCustomer: (id: string, data: Record<string, unknown>) => apiCall({ action: 'customers.update', data: { id, ...data } }),
+  deleteCustomer: (id: string) => apiCall({ action: 'customers.delete', data: { id } }),
 
   // Products
-  getProducts: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'products.list', data: params }),
-
-  getProduct: (id: string) =>
-    apiCall({ action: 'products.get', data: { id } }),
-
-  createProduct: (data: Record<string, unknown>) =>
-    apiCall({ action: 'products.create', data }),
-
-  updateProduct: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'products.update', data: { id, ...data } }),
-
-  deleteProduct: (id: string) =>
-    apiCall({ action: 'products.delete', data: { id } }),
-
-  searchProducts: (query: string) =>
-    apiCall({ action: 'products.search', data: { query } }),
-
+  getProducts: (params?: Record<string, unknown>) => apiCall({ action: 'products.list', data: params }),
+  getProduct: (id: string) => apiCall({ action: 'products.get', data: { id } }),
+  createProduct: (data: Record<string, unknown>) => apiCall({ action: 'products.create', data }),
+  updateProduct: (id: string, data: Record<string, unknown>) => apiCall({ action: 'products.update', data: { id, ...data } }),
+  deleteProduct: (id: string) => apiCall({ action: 'products.delete', data: { id } }),
   getProductCustomerPrice: (productId: string, customerId: string) =>
     apiCall({ action: 'products.getCustomerPrice', data: { productId, customerId } }),
 
   // Customer Prices
-  getCustomerPrices: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'customerPrices.list', data: params }),
-
-  createCustomerPrice: (data: Record<string, unknown>) =>
-    apiCall({ action: 'customerPrices.create', data }),
-
-  updateCustomerPrice: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'customerPrices.update', data: { id, ...data } }),
-
-  deleteCustomerPrice: (id: string) =>
-    apiCall({ action: 'customerPrices.delete', data: { id } }),
-
-  // Transactions
-  getTransactions: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'transactions.list', data: params }),
-
-  getTransaction: (id: string) =>
-    apiCall({ action: 'transactions.get', data: { id } }),
-
-  createTransaction: (data: Record<string, unknown>) =>
-    apiCall({ action: 'transactions.create', data }),
-
-  updateTransaction: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'transactions.update', data: { id, ...data } }),
-
-  deleteTransaction: (id: string) =>
-    apiCall({ action: 'transactions.delete', data: { id } }),
-
-  updateTransactionPayment: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'transactions.updatePayment', data: { id, ...data } }),
-
-  // Deliveries
-  getDeliveries: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'deliveries.list', data: params }),
-
-  getDelivery: (id: string) =>
-    apiCall({ action: 'deliveries.get', data: { id } }),
-
-  createDelivery: (data: Record<string, unknown>) =>
-    apiCall({ action: 'deliveries.create', data }),
-
-  updateDelivery: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'deliveries.update', data: { id, ...data } }),
-
-  updateDeliveryStatus: (id: string, status: string) =>
-    apiCall({ action: 'deliveries.updateStatus', data: { id, status } }),
-
-  completeDelivery: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'deliveries.complete', data: { id, ...data } }),
-
-  uploadDeliveryProof: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'deliveries.uploadProof', data: { id, ...data } }),
+  getCustomerPrices: (params?: Record<string, unknown>) => apiCall({ action: 'customerPrices.list', data: params }),
+  createCustomerPrice: (data: Record<string, unknown>) => apiCall({ action: 'customerPrices.create', data }),
+  updateCustomerPrice: (id: string, data: Record<string, unknown>) => apiCall({ action: 'customerPrices.update', data: { id, ...data } }),
+  deleteCustomerPrice: (id: string) => apiCall({ action: 'customerPrices.delete', data: { id } }),
 
   // Drivers
-  getDrivers: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'drivers.list', data: params }),
-
-  getDriver: (id: string) =>
-    apiCall({ action: 'drivers.get', data: { id } }),
-
-  createDriver: (data: Record<string, unknown>) =>
-    apiCall({ action: 'drivers.create', data }),
-
-  updateDriver: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'drivers.update', data: { id, ...data } }),
-
-  deleteDriver: (id: string) =>
-    apiCall({ action: 'drivers.delete', data: { id } }),
+  getDrivers: (params?: Record<string, unknown>) => apiCall({ action: 'drivers.list', data: params }),
+  getDriver: (id: string) => apiCall({ action: 'drivers.get', data: { id } }),
+  createDriver: (data: Record<string, unknown>) => apiCall({ action: 'drivers.create', data }),
+  updateDriver: (id: string, data: Record<string, unknown>) => apiCall({ action: 'drivers.update', data: { id, ...data } }),
+  deleteDriver: (id: string) => apiCall({ action: 'drivers.delete', data: { id } }),
 
   // Vehicles
-  getVehicles: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'vehicles.list', data: params }),
+  getVehicles: (params?: Record<string, unknown>) => apiCall({ action: 'vehicles.list', data: params }),
+  getVehicle: (id: string) => apiCall({ action: 'vehicles.get', data: { id } }),
+  createVehicle: (data: Record<string, unknown>) => apiCall({ action: 'vehicles.create', data }),
+  updateVehicle: (id: string, data: Record<string, unknown>) => apiCall({ action: 'vehicles.update', data: { id, ...data } }),
+  deleteVehicle: (id: string) => apiCall({ action: 'vehicles.delete', data: { id } }),
 
-  getVehicle: (id: string) =>
-    apiCall({ action: 'vehicles.get', data: { id } }),
+  // Transactions
+  getTransactions: (params?: Record<string, unknown>) => apiCall({ action: 'transactions.list', data: params }),
+  getTransaction: (id: string) => apiCall({ action: 'transactions.get', data: { id } }),
+  createTransaction: (data: Record<string, unknown>) => apiCall({ action: 'transactions.create', data }),
+  updateTransactionPayment: (id: string, data: Record<string, unknown>) => apiCall({ action: 'transactions.updatePayment', data: { id, ...data } }),
 
-  createVehicle: (data: Record<string, unknown>) =>
-    apiCall({ action: 'vehicles.create', data }),
-
-  updateVehicle: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'vehicles.update', data: { id, ...data } }),
-
-  deleteVehicle: (id: string) =>
-    apiCall({ action: 'vehicles.delete', data: { id } }),
+  // Deliveries
+  getDeliveries: (params?: Record<string, unknown>) => apiCall({ action: 'deliveries.list', data: params }),
+  getDelivery: (id: string) => apiCall({ action: 'deliveries.get', data: { id } }),
+  updateDeliveryStatus: (id: string, status: string) => apiCall({ action: 'deliveries.updateStatus', data: { id, status } }),
 
   // Targets
-  getTargets: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'targets.list', data: params }),
+  getTargets: (params?: Record<string, unknown>) => apiCall({ action: 'targets.list', data: params }),
+  createTarget: (data: Record<string, unknown>) => apiCall({ action: 'targets.create', data }),
 
-  getTarget: (id: string) =>
-    apiCall({ action: 'targets.get', data: { id } }),
+  // Dashboard
+  getDashboardStats: () => apiCall({ action: 'reports.dashboard' }),
 
-  createTarget: (data: Record<string, unknown>) =>
-    apiCall({ action: 'targets.create', data }),
-
-  updateTarget: (id: string, data: Record<string, unknown>) =>
-    apiCall({ action: 'targets.update', data: { id, ...data } }),
-
-  deleteTarget: (id: string) =>
-    apiCall({ action: 'targets.delete', data: { id } }),
-
-  getTargetAchievement: (id: string) =>
-    apiCall({ action: 'targets.getAchievement', data: { id } }),
-
-  // Reports
-  getDashboardStats: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.dashboard', data: params }),
-
-  getSalesReport: (params: Record<string, unknown>) =>
-    apiCall({ action: 'reports.sales', data: params }),
-
-  getDailyReport: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.daily', data: params }),
-
-  getWeeklyReport: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.weekly', data: params }),
-
-  getMonthlyReport: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.monthly', data: params }),
-
-  getYearlyReport: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.yearly', data: params }),
-
-  getTopProducts: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.topProducts', data: params }),
-
-  getTopCustomers: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.topCustomers', data: params }),
-
-  getTargetAchievementReport: (params?: Record<string, unknown>) =>
-    apiCall({ action: 'reports.targetAchievement', data: params }),
-
-  // Export
-  exportTransactions: (params: Record<string, unknown>) =>
-    apiCall({ action: 'export.transactions', data: params }),
-
-  exportDeliveries: (params: Record<string, unknown>) =>
-    apiCall({ action: 'export.deliveries', data: params }),
-
-  exportReport: (params: Record<string, unknown>) =>
-    apiCall({ action: 'export.report', data: params }),
-
-  // Files
-  uploadFile: (file: string, filename: string) =>
-    apiCall({ action: 'files.upload', data: { file, filename } }),
-
-  deleteFile: (url: string) =>
-    apiCall({ action: 'files.delete', data: { url } }),
+  // Raw API call for custom actions
+  call: <T = unknown>(action: string, data?: Record<string, unknown>) => apiCall<T>({ action, data }),
 }
 
 export default api

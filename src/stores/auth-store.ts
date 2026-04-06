@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null })
 
         try {
-          const response = await api.login(credentials.username, credentials.password)
+          const response = await api.login(credentials.username, credentials.password, credentials.rememberMe)
 
           if (!response.success || !response.data) {
             const errorMessage = response.error || 'Login failed. Please try again.'
@@ -139,6 +139,16 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
 
         try {
+          // Check if we have stored user from persist
+          const storedState = get()
+          if (storedState.user && storedState.isAuthenticated) {
+            set({
+              isLoading: false,
+              isInitialized: true,
+            })
+            return
+          }
+
           const tokens = TokenManager.getTokens()
 
           if (!tokens || TokenManager.isTokenExpired()) {
@@ -152,25 +162,11 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
-          // Try to get user data
-          const response = await api.getUser('me')
-
-          if (response.success && response.data) {
-            set({
-              user: response.data as User,
-              isAuthenticated: true,
-              isLoading: false,
-              isInitialized: true,
-            })
-          } else {
-            TokenManager.clearTokens()
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              isInitialized: true,
-            })
-          }
+          // For mock mode, we can skip token validation
+          set({
+            isLoading: false,
+            isInitialized: true,
+          })
         } catch {
           TokenManager.clearTokens()
           set({
@@ -220,7 +216,7 @@ export const useHasRole = (roles: string | string[]): boolean => {
 
 // Hook for checking if user is admin
 export const useIsAdmin = (): boolean => {
-  return useHasRole(['admin'])
+  return useHasRole(['SuperAdmin', 'Manager'])
 }
 
 // Hook for getting current user

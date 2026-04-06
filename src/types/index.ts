@@ -1,460 +1,427 @@
 // =============================================
 // TYPES FOR TRANSACTION & SALES MANAGEMENT SYSTEM
+// Matches Google Apps Script Backend Schema
 // =============================================
+
+import type { ReactNode } from 'react'
 
 // ============ API Response Types ============
 export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  token?: string;
-  refreshToken?: string;
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+  token?: string
+  refreshToken?: string
+  expiresIn?: number
+  code?: string
+  pagination?: Pagination
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
-export interface ApiError {
-  message: string;
-  code?: string;
-  status?: number;
+export interface Pagination {
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
 }
 
 // ============ Auth Types ============
 export interface User {
-  id: string;
-  username: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  phone?: string;
-  address?: string;
-  photo?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  username: string
+  fullName: string
+  email: string
+  phone: string
+  role: UserRole
+  division: string
+  photoUrl: string
+  permissions: string[]
+  isActive: boolean
+  lastLogin?: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
-export type UserRole = 'admin' | 'manager' | 'sales' | 'driver' | 'cashier';
+export type UserRole = 'SuperAdmin' | 'Manager' | 'Sales' | 'Driver' | 'Cashier'
 
 export interface LoginCredentials {
-  username: string;
-  password: string;
-  rememberMe?: boolean;
+  username: string
+  password: string
+  rememberMe?: boolean
 }
 
 export interface AuthTokens {
-  token: string;
-  refreshToken: string;
-  expiresAt: number;
-}
-
-export interface AuthState {
-  user: User | null;
-  tokens: AuthTokens | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
+  token: string
+  refreshToken: string
+  expiresAt: number
 }
 
 // ============ Config Types ============
-export interface AppConfig {
-  id: string;
-  appName: string;
-  companyName: string;
-  logo?: string;
-  banner?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  taxRate: number;
-  invoicePrefix: string;
-  invoiceStartingNumber: number;
-  deliveryNotePrefix: string;
-  deliveryNoteStartingNumber: number;
-  categories: string[];
-  salesNames: string[];
-  paymentMethods: string[];
-  deliveryStatuses: string[];
-  createdAt: string;
-  updatedAt: string;
+export interface Config {
+  APP_NAME?: string
+  APP_VERSION?: string
+  COMPANY_NAME?: string
+  COMPANY_ADDRESS?: string
+  COMPANY_PHONE?: string
+  COMPANY_EMAIL?: string
+  LOGO_URL?: string
+  BANNER_URL?: string
+  TAX_RATE?: string
+  INVOICE_PREFIX?: string
+  DELIVERY_PREFIX?: string
+  PRODUCT_CATEGORIES?: string[]
+  SALES_NAMES?: string[]
+  PAYMENT_METHODS?: string[]
+  VEHICLE_TYPES?: string[]
+  USER_ROLES?: string[]
+  [key: string]: unknown
 }
 
 // ============ Customer Types ============
 export interface Customer {
-  id: string;
-  code: string;
-  name: string;
-  email?: string;
-  phone: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
-  notes?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  totalTransactions?: number;
-  totalSpent?: number;
-}
-
-export interface CustomerFormData {
-  name: string;
-  email?: string;
-  phone: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
-  notes?: string;
-  isActive: boolean;
+  id: string
+  customerCode: string
+  customerName: string
+  address: string
+  city: string
+  province: string
+  postalCode: string
+  googleMapsUrl: string
+  picName: string
+  picPosition: string
+  picPhone: string
+  picEmail: string
+  creditLimit: number
+  currentCredit: number
+  paymentTerms: number
+  isActive: boolean
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 // ============ Product Types ============
 export interface Product {
-  id: string;
-  code: string;
-  name: string;
-  category: string;
-  description?: string;
-  unit: string;
-  basePrice: number;
-  sellingPrice: number;
-  stock: number;
-  minStock: number;
-  image?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProductFormData {
-  code: string;
-  name: string;
-  category: string;
-  description?: string;
-  unit: string;
-  basePrice: number;
-  sellingPrice: number;
-  stock: number;
-  minStock: number;
-  image?: string;
-  isActive: boolean;
+  id: string
+  productCode: string
+  productName: string
+  category: string
+  baseUnitWeight: number
+  basePricePerKg: number
+  basePricePerUnit: number
+  isPPN: boolean
+  unitName: string
+  kgName: string
+  stockQtyUnit: number
+  stockQtyKg: number
+  minStock: number
+  isActive: boolean
+  description: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 // ============ Customer Price Types ============
 export interface CustomerPrice {
-  id: string;
-  customerId: string;
-  customer?: Customer;
-  productId: string;
-  product?: Product;
-  specialPrice: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CustomerPriceFormData {
-  customerId: string;
-  productId: string;
-  specialPrice: number;
+  id: string
+  customerId: string
+  customerCode: string
+  customerName: string
+  productId: string
+  productCode: string
+  productName: string
+  specialPricePerKg: number
+  specialPricePerUnit: number
+  discountPercent: number
+  isPPN: boolean
+  effectiveDate: string
+  expiryDate: string
+  isActive: boolean
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 // ============ Driver Types ============
 export interface Driver {
-  id: string;
-  name: string;
-  phone: string;
-  email?: string;
-  licenseNumber?: string;
-  licenseExpiry?: string;
-  address?: string;
-  photo?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  totalDeliveries?: number;
-}
-
-export interface DriverFormData {
-  name: string;
-  phone: string;
-  email?: string;
-  licenseNumber?: string;
-  licenseExpiry?: string;
-  address?: string;
-  photo?: string;
-  isActive: boolean;
+  id: string
+  driverCode: string
+  driverName: string
+  phone: string
+  licenseNumber: string
+  licenseExpiry: string
+  address: string
+  isActive: boolean
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 // ============ Vehicle Types ============
 export interface Vehicle {
-  id: string;
-  plateNumber: string;
-  type: string;
-  brand?: string;
-  model?: string;
-  year?: number;
-  capacity?: number;
-  stnkExpiry?: string;
-  insuranceExpiry?: string;
-  notes?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface VehicleFormData {
-  plateNumber: string;
-  type: string;
-  brand?: string;
-  model?: string;
-  year?: number;
-  capacity?: number;
-  stnkExpiry?: string;
-  insuranceExpiry?: string;
-  notes?: string;
-  isActive: boolean;
+  id: string
+  vehiclePlate: string
+  vehicleType: string
+  vehicleBrand: string
+  vehicleModel: string
+  maxCapacityKg: number
+  stnkExpiry: string
+  kirExpiry: string
+  isActive: boolean
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 // ============ Transaction Types ============
 export interface Transaction {
-  id: string;
-  invoiceNumber: string;
-  customerId: string;
-  customer?: Customer;
-  salesName?: string;
-  items: TransactionItem[];
-  subtotal: number;
-  taxAmount: number;
-  discount: number;
-  total: number;
-  paidAmount: number;
-  remainingAmount: number;
-  paymentStatus: PaymentStatus;
-  paymentMethod?: string;
-  paymentDate?: string;
-  notes?: string;
-  status: TransactionStatus;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  invoiceNumber: string
+  invoiceDate: string
+  customerId: string
+  customerCode: string
+  customerName: string
+  customerAddress: string
+  customerPhone: string
+  salesId: string
+  salesName: string
+  subtotal: number
+  taxAmount: number
+  discountAmount: number
+  grandTotal: number
+  paidAmount: number
+  remainingAmount: number
+  paymentStatus: PaymentStatus
+  deliveryStatus: DeliveryStatus
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
+  items?: TransactionItem[]
 }
 
-export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'overdue';
-export type TransactionStatus = 'draft' | 'confirmed' | 'completed' | 'cancelled';
+export type PaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID'
+export type DeliveryStatus = 'PENDING' | 'PROCESSING' | 'PARTIAL' | 'DELIVERED'
 
 export interface TransactionItem {
-  id: string;
-  transactionId: string;
-  productId: string;
-  product?: Product;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-  total: number;
-  notes?: string;
-}
-
-export interface TransactionFormData {
-  customerId: string;
-  salesName?: string;
-  items: TransactionItemFormData[];
-  discount?: number;
-  paymentMethod?: string;
-  paidAmount?: number;
-  notes?: string;
-  status: TransactionStatus;
-}
-
-export interface TransactionItemFormData {
-  productId: string;
-  quantity: number;
-  unitPrice: number;
-  discount?: number;
-  notes?: string;
+  id: string
+  transactionId: string
+  invoiceNumber: string
+  productId: string
+  productCode: string
+  productName: string
+  unitWeight: number
+  pricePerKg: number
+  pricePerUnit: number
+  qtyOrderUnit: number
+  qtyOrderKg: number
+  qtyFulfilledUnit: number
+  qtyFulfilledKg: number
+  qtyUnfulfilledUnit: number
+  qtyUnfulfilledKg: number
+  unitName: string
+  kgName: string
+  isPPN: boolean
+  subtotal: number
+  taxAmount: number
+  totalAmount: number
+  fulfillmentStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED'
+  notes: string
+  createdAt: string
 }
 
 // ============ Delivery Types ============
 export interface Delivery {
-  id: string;
-  deliveryNumber: string;
-  transactionId: string;
-  transaction?: Transaction;
-  customerId: string;
-  customer?: Customer;
-  driverId?: string;
-  driver?: Driver;
-  vehicleId?: string;
-  vehicle?: Vehicle;
-  deliveryAddress?: string;
-  deliveryDate?: string;
-  status: DeliveryStatus;
-  notes?: string;
-  proofPhoto?: string;
-  proofSignature?: string;
-  recipientName?: string;
-  completedAt?: string;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  deliveryNumber: string
+  deliveryDate: string
+  transactionId: string
+  invoiceNumber: string
+  customerId: string
+  customerCode: string
+  customerName: string
+  customerAddress: string
+  customerPhone: string
+  googleMapsUrl: string
+  driverId: string
+  driverName: string
+  driverPhone: string
+  vehicleId: string
+  vehiclePlate: string
+  vehicleType: string
+  totalItems: number
+  totalWeight: number
+  deliveryStatus: DeliveryState
+  deliveryTime?: string
+  receiverName?: string
+  receiverSignature?: string
+  deliveryPhoto?: string
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
+  items?: DeliveryItem[]
 }
 
-export type DeliveryStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'failed' | 'cancelled';
+export type DeliveryState = 'PENDING' | 'ON_DELIVERY' | 'DELIVERED' | 'FAILED'
 
-export interface DeliveryFormData {
-  transactionId: string;
-  driverId?: string;
-  vehicleId?: string;
-  deliveryAddress?: string;
-  deliveryDate?: string;
-  notes?: string;
+export interface DeliveryItem {
+  id: string
+  deliveryId: string
+  deliveryNumber: string
+  transactionItemId: string
+  productId: string
+  productCode: string
+  productName: string
+  qtyDeliveredUnit: number
+  qtyDeliveredKg: number
+  unitName: string
+  kgName: string
+  notes: string
+  createdAt: string
 }
 
 // ============ Target Types ============
 export interface Target {
-  id: string;
-  name: string;
-  type: TargetType;
-  period: TargetPeriod;
-  year: number;
-  month?: number;
-  week?: number;
-  targetAmount: number;
-  achievedAmount: number;
-  achievementPercent: number;
-  salesName?: string;
-  productId?: string;
-  product?: Product;
-  customerId?: string;
-  customer?: Customer;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  year: number
+  month: number
+  targetType: 'COMPANY' | 'SALES'
+  targetEntityId: string
+  targetEntityName: string
+  targetAmount: number
+  targetQtyUnit: number
+  targetQtyKg: number
+  targetCustomerCount: number
+  achievedAmount: number
+  achievedQtyUnit: number
+  achievedQtyKg: number
+  achievedCustomerCount: number
+  achievementPercent: number
+  notes: string
+  createdAt: string
+  createdBy?: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
-export type TargetType = 'revenue' | 'quantity' | 'customer' | 'product';
-export type TargetPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
-
-export interface TargetFormData {
-  name: string;
-  type: TargetType;
-  period: TargetPeriod;
-  year: number;
-  month?: number;
-  week?: number;
-  targetAmount: number;
-  salesName?: string;
-  productId?: string;
-  customerId?: string;
-  isActive: boolean;
-}
-
-// ============ Report Types ============
+// ============ Dashboard Types ============
 export interface DashboardStats {
-  todaySales: number;
-  monthSales: number;
-  yearSales: number;
-  todayTransactions: number;
-  pendingPayments: number;
-  pendingDeliveries: number;
-  lowStockProducts: number;
-  activeCustomers: number;
-}
-
-export interface SalesTrend {
-  date: string;
-  sales: number;
-  transactions: number;
-}
-
-export interface TopProduct {
-  product: Product;
-  quantity: number;
-  total: number;
-}
-
-export interface TopCustomer {
-  customer: Customer;
-  transactions: number;
-  total: number;
-}
-
-export interface ReportFilter {
-  startDate?: string;
-  endDate?: string;
-  period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  customerId?: string;
-  productId?: string;
-  salesName?: string;
-  category?: string;
-}
-
-// ============ File Upload Types ============
-export interface FileUploadResponse {
-  url: string;
-  filename: string;
-  size: number;
-  mimeType: string;
-}
-
-// ============ Table Types ============
-export interface TableColumn<T> {
-  key: keyof T | string;
-  label: string;
-  sortable?: boolean;
-  render?: (value: unknown, row: T) => React.ReactNode;
-  className?: string;
-}
-
-export interface TablePagination {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface TableSort {
-  key: string;
-  direction: 'asc' | 'desc';
-}
-
-export interface TableFilter {
-  key: string;
-  value: string | string[];
-  operator?: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'in';
+  dailySummary: {
+    totalInvoices: number
+    totalCustomers: number
+    totalAmount: number
+  }
+  monthlySummary: {
+    totalInvoices: number
+    totalAmount: number
+    paidAmount: number
+    pendingAmount: number
+  }
+  monthlyComparison: {
+    currentMonth: number
+    previousMonth: number
+    percentChange: number
+  }
+  monthlyTrend: Array<{
+    month: number
+    monthName: string
+    totalAmount: number
+    totalInvoices: number
+  }>
+  targetAchievement?: {
+    targetAmount: number
+    achievedAmount: number
+    achievementPercent: number
+  }
+  recentTransactions: Transaction[]
+  topProducts: Array<{
+    productName: string
+    totalQty: number
+    totalAmount: number
+  }>
+  topCustomers: Array<{
+    customerName: string
+    totalAmount: number
+    invoiceCount: number
+  }>
 }
 
 // ============ Navigation Types ============
 export interface NavItem {
-  title: string;
-  href: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  badge?: string | number;
-  children?: NavItem[];
-  permissions?: UserRole[];
+  title: string
+  href: string
+  icon?: React.ComponentType<{ className?: string }>
+  badge?: string | number
+  children?: NavItem[]
+  permissions?: string[]
 }
 
 // ============ Form Types ============
 export interface FormFieldConfig {
-  name: string;
-  label: string;
-  type: 'text' | 'email' | 'password' | 'number' | 'tel' | 'textarea' | 'select' | 'date' | 'checkbox' | 'file';
-  placeholder?: string;
-  required?: boolean;
-  disabled?: boolean;
-  options?: { label: string; value: string }[];
+  name: string
+  label: string
+  type: 'text' | 'email' | 'password' | 'number' | 'tel' | 'textarea' | 'select' | 'date' | 'checkbox' | 'file'
+  placeholder?: string
+  required?: boolean
+  disabled?: boolean
+  options?: { label: string; value: string }[]
   validation?: {
-    min?: number;
-    max?: number;
-    minLength?: number;
-    maxLength?: number;
-    pattern?: string;
-  };
+    min?: number
+    max?: number
+    minLength?: number
+    maxLength?: number
+    pattern?: string
+  }
+}
+
+// ============ Table Types ============
+export interface TableColumn<T> {
+  key: keyof T | string
+  label: string
+  sortable?: boolean
+  render?: (value: unknown, row: T) => ReactNode
+  className?: string
+}
+
+export interface TablePagination {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+export interface TableSort {
+  key: string
+  direction: 'asc' | 'desc'
+}
+
+export interface TableFilter {
+  key: string
+  value: string | string[]
+  operator?: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'in'
+}
+
+// ============ File Upload Types ============
+export interface FileUploadResponse {
+  url: string
+  filename: string
+  size: number
+  mimeType: string
 }

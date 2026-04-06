@@ -2,8 +2,8 @@
 
 ---
 Task ID: 1-18
-Agent: full-stack-developer
-Task: Membangun aplikasi web lengkap untuk Sistem Manajemen Transaksi & Penjualan dengan Next.js 16
+Agent: full-stack-developer + main-agent
+Task: Membangun aplikasi web lengkap untuk Sistem Manajemen Transaksi & Penjualan dengan Next.js 16 + Mock Mode untuk testing
 
 Work Log:
 - Setup Next.js 16 project dengan App Router
@@ -18,61 +18,34 @@ Work Log:
 - Membuat Reports pages
 - Membuat Settings page dengan dynamic configuration
 - Implementasi Base64 Image Upload utility
+- **TAMBAHAN**: Mock Data System untuk testing frontend tanpa backend
+- **TAMBAHAN**: Mock Mode Toggle di login page dan settings
 
 Stage Summary:
-- Aplikasi web lengkap telah dibangun dengan struktur sebagai berikut:
+- Aplikasi web lengkap telah dibangun dengan mock mode untuk testing
+- File mock data: `/home/z/my-project/src/lib/mock-data.ts`
+- File mock API: `/home/z/my-project/src/lib/mock-api.ts`
+- Default: Mock Mode aktif (isMockMode: true)
 
-## File Structure
-```
-src/
-├── app/
-│   ├── (authenticated)/
-│   │   ├── layout.tsx              # Layout dengan sidebar & auth guard
-│   │   ├── page.tsx                 # Dashboard
-│   │   ├── master/
-│   │   │   ├── users/page.tsx       # Manajemen Users
-│   │   │   ├── customers/page.tsx   # Manajemen Customers
-│   │   │   ├── products/page.tsx    # Manajemen Products
-│   │   │   ├── drivers/page.tsx     # Manajemen Drivers
-│   │   │   ├── vehicles/page.tsx    # Manajemen Vehicles
-│   │   │   └── prices/page.tsx      # Customer Prices
-│   │   ├── transactions/page.tsx    # Transaksi Penjualan
-│   │   ├── deliveries/page.tsx      # Pengiriman
-│   │   ├── targets/page.tsx         # Target Penjualan
-│   │   ├── reports/page.tsx         # Laporan
-│   │   └── settings/page.tsx        # Pengaturan
-│   ├── (public)/
-│   │   └── login/page.tsx           # Halaman Login
-│   └── layout.tsx                   # Root layout
-├── components/
-│   ├── layout/sidebar.tsx           # Sidebar & Navbar
-│   └── shared/data-table.tsx        # DataTable component
-├── lib/
-│   ├── api.ts                       # API Service untuk GAS
-│   ├── constants.ts                 # Constants
-│   └── utils.ts                     # Utility functions
-├── stores/
-│   ├── auth-store.ts                # Zustand auth store
-│   └── app-store.ts                 # Zustand app store
-└── types/index.ts                   # TypeScript types
-```
+## Fitur Testing
+1. **Mock Mode Aktif secara default** - untuk testing tanpa GAS backend
+2. **Demo Credentials** di login page:
+   - SuperAdmin: admin / admin123
+   - Sales: sales1 / admin123  
+   - Manager: manager / admin123
+   - Driver: driver1 / admin123
+3. **Toggle Mock Mode** - bisa diganti ke Production di login page
 
-## Fitur Utama
-1. **API Service Layer** - Fetch wrapper untuk GAS dengan error handling
-2. **Authentication** - Token-based auth dengan auto-refresh
-3. **Dashboard** - Statistics cards, charts, recent transactions
-4. **Master Data** - CRUD untuk Users, Customers, Products, Drivers, Vehicles
-5. **Transactions** - Create, view, update, payment tracking
-6. **Deliveries** - Status management, driver assignment
-7. **Targets** - Sales targets dengan achievement visualization
-8. **Reports** - Daily, Weekly, Monthly, Yearly reports
-9. **Settings** - Dynamic configuration management
+## Cara Menggunakan
+1. Buka aplikasi di preview
+2. Login dengan kredensial demo (auto-filled)
+3. Test semua fitur dengan data dummy
+4. Setelah GAS backend siap, toggle ke Production mode
 
 ## Environment Variables
 ```
 NEXT_PUBLIC_GAS_API_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
 ```
 
-## Catatan Deployment
-- Ganti NEXT_PUBLIC_GAS_API_URL dengan URL GAS yang sebenarnya
-- Deploy ke Vercel dengan GitHub CI/CD
+## Preview
+Link: https://preview-chat-63d8f8a7-2844-48e5-a1cb-3b7401f102df.space.z.ai/login

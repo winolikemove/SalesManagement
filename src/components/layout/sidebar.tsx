@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useIsAdmin } from '@/stores/auth-store'
-import { useAppStore, useSidebar, useTheme } from '@/stores/app-store'
+import { useAppStore, useSidebar, useThemeState, usePageHeader } from '@/stores/app-store'
 import { ROLE_LABELS } from '@/lib/constants'
 import type { User } from '@/types'
 
@@ -232,11 +232,11 @@ interface UserMenuProps {
 }
 
 function UserMenu({ user, onLogout }: UserMenuProps) {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useThemeState()
 
   if (!user) return null
 
-  const initials = user.name
+  const initials = user.fullName
     .split(' ')
     .map((n) => n[0])
     .join('')
@@ -248,11 +248,11 @@ function UserMenu({ user, onLogout }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-full justify-start gap-2 px-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.photo} alt={user.name} />
+            <AvatarImage src={user.photoUrl} alt={user.fullName} />
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col items-start text-left">
-            <span className="text-sm font-medium">{user.name}</span>
+            <span className="text-sm font-medium">{user.fullName}</span>
             <span className="text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</span>
           </div>
           <ChevronRight className="ml-auto h-4 w-4" />
@@ -261,7 +261,7 @@ function UserMenu({ user, onLogout }: UserMenuProps) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col">
-            <span>{user.name}</span>
+            <span>{user.fullName}</span>
             <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
           </div>
         </DropdownMenuLabel>
@@ -372,9 +372,9 @@ function SidebarUserMenu({ collapsed }: SidebarUserMenuProps) {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-10 w-10 rounded-full p-0">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.photo} alt={user.name} />
+              <AvatarImage src={user.photoUrl} alt={user.fullName} />
               <AvatarFallback className="text-xs">
-                {user.name
+                {user.fullName
                   .split(' ')
                   .map((n) => n[0])
                   .join('')
@@ -483,7 +483,7 @@ export function Navbar() {
 
 // ============ Theme Toggle ============
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useThemeState()
 
   return (
     <Button
