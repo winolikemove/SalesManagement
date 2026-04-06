@@ -36,7 +36,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -46,9 +45,30 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
-prompt
 
-server.log
-# Skills directory
+# Skills directory (not needed for this project)
 /skills/
+
+# Uploads and downloads
+/upload/
+/download/
+
+# Database files
+/db/
+*.db
+*.sqlite
+
+# Examples
+/examples/
+
+# Prisma (not used - using mock data)
+/prisma/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
