@@ -164,3 +164,61 @@ Successfully updated the Settings page to integrate with the backend API:
 ### Build Status:
 - Build berhasil tanpa error
 - Semua halaman static rendering berhasil
+
+---
+## Task ID: update-transactions-table-format
+### Agent: Main Agent
+### Task: Update tabel Transactions format sesuai backend default dengan fitur global search dan form auto-fill
+
+### Work Log:
+- Memeriksa struktur Transaction dan TransactionItem types
+- Merewrite transactions page dengan fitur baru
+
+### Changes Made:
+1. **Main Table Format** - Tabel utama menampilkan items dengan format:
+   - Invoice Number
+   - Tanggal
+   - Customer Name & Code
+   - Kode Barang (Product Code)
+   - Nama Barang (Product Name)
+   - Qty (Quantity Order)
+   - Harga (Price per Unit)
+   - Subtotal
+   - Status Fulfillment
+   - Actions (Lihat detail)
+
+2. **Global Search / Auto-Find Feature**:
+   - Single search input di atas tabel
+   - Mencari across semua field: invoice, customer, kode barang, nama barang, sales, satuan
+   - Real-time filtering saat user mengetik
+   - Menampilkan jumlah hasil yang ditemukan
+   - Clear button untuk reset pencarian
+
+3. **Transaction Form with Auto-Fill**:
+   - Customer Selection dengan AutoComplete:
+     - Ketik nama customer → menampilkan suggestions
+     - Pilih customer → auto-fill: kode, alamat, telepon
+   - Product Selection dengan AutoComplete:
+     - Ketik nama barang → menampilkan suggestions dengan stok
+     - Pilih barang → auto-fill: kode, harga/unit, harga/kg, satuan
+   - Quantity tetap manual diisi user
+   - Support multiple items (tambah/hapus barang)
+
+4. **View Transaction Detail**:
+   - Menampilkan header transaksi
+   - Table items dengan kode barang, nama barang, qty
+   - Summary dengan subtotal, PPN, diskon, total
+   - Status pembayaran dan sisa
+
+5. **AutoCompleteInput Component**:
+   - Reusable component untuk type-ahead input
+   - Keyboard navigation support
+   - Clear button
+   - Custom render item
+
+### Files Modified:
+- `/home/z/my-project/src/app/(authenticated)/transactions/page.tsx`
+
+### Push Status:
+- Committed: 53f19e8
+- Pushed to GitHub: https://github.com/winolikemove/SalesManagement
