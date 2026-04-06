@@ -32,7 +32,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -44,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { AlertCircle, Loader2, Trash2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import type { FormFieldConfig } from '@/types'
 
 // ============ Form Field Component ============
@@ -396,13 +395,19 @@ export function ModalForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={maxWidthClasses[maxWidth]}>
-        <DialogHeader>
+      <DialogContent className={cn(maxWidthClasses[maxWidth], "flex flex-col p-0 gap-0 max-h-[90vh]")}>
+        <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-3 border-b shrink-0">
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {children}
-        {footer && <DialogFooter>{footer}</DialogFooter>}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-4 min-h-0">
+          {children}
+        </div>
+        {footer && (
+          <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 pt-3 border-t shrink-0">
+            {footer}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )
