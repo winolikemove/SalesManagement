@@ -16,7 +16,7 @@ import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, D
 import { usePageHeader } from '@/stores/app-store'
 import { useSalesNames, usePaymentMethods, useTaxRate, useProductCategories } from '@/hooks/use-settings'
 import { api } from '@/lib/api'
-import type { Transaction, TransactionItem, Customer, Product } from '@/types'
+import type { Transaction, TransactionItem, Customer, Product, CustomerPrice } from '@/types'
 
 // ============ Extended Transaction Item for Table Display ============
 interface TransactionItemDisplay extends TransactionItem {
@@ -165,6 +165,9 @@ interface TransactionItemFormData {
   unitName: string
   kgName: string
   discount: number
+  discountPercent: number
+  hasSpecialPrice: boolean
+  originalPrice: number
 }
 
 interface TransactionFormData {
@@ -181,10 +184,11 @@ interface TransactionFormData {
   notes: string
 }
 
-function TransactionForm({ transaction, customers, products, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
+function TransactionForm({ transaction, customers, products, customerPrices, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
   transaction?: Transaction
   customers: Customer[]
   products: Product[]
+  customerPrices: CustomerPrice[]
   salesNames: string[]
   paymentMethods: string[]
   taxRateSetting: number
@@ -264,26 +268,99 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
     }
   }
 
-  // Handle product selection with auto-fill
+  // Find customer special price for a product
+  const findCustomerPrice = (productId: string): CustomerPrice | undefined => {
+    if (!formData.customerId) return undefined
+    return customerPrices.find(cp => 
+      cp.customerId === formData.customerId && 
+      cp.productId === productId && 
+      cp.isActive
+    )
+  }
+
+  // Handle product selection with auto-fill and customer price check
   const handleProductSelect = (index: number, value: string, product?: Product) => {
     if (product) {
       const newItems = [...formData.items]
       const currentQty = newItems[index]?.quantity || 1
-      newItems[index] = {
-        ...newItems[index],
-        productId: product.id,
-        productCode: product.productCode,
-        productName: product.productName,
-        unitWeight: product.baseUnitWeight,
-        qtyKg: currentQty * product.baseUnitWeight,
-        unitPrice: product.basePricePerUnit,
-        pricePerKg: product.basePricePerKg,
-        unitName: product.unitName,
-        kgName: product.kgName,
+      
+      // Check if there's a special price for this customer + product
+      const customerPrice = findCustomerPrice(product.id)
+      
+      if (customerPrice) {
+        // Use special price from Customer Prices
+        newItems[index] = {
+          ...newItems[index],
+          productId: product.id,
+          productCode: product.productCode,
+          productName: product.productName,
+          unitWeight: product.baseUnitWeight,
+          qtyKg: currentQty * product.baseUnitWeight,
+          unitPrice: customerPrice.specialPricePerUnit,
+          pricePerKg: customerPrice.specialPricePerKg,
+          unitName: product.unitName,
+          kgName: product.kgName,
+          discountPercent: customerPrice.discountPercent,
+          hasSpecialPrice: true,
+          originalPrice: product.basePricePerUnit,
+        }
+      } else {
+        // Use normal product price
+        newItems[index] = {
+          ...newItems[index],
+          productId: product.id,
+          productCode: product.productCode,
+          productName: product.productName,
+          unitWeight: product.baseUnitWeight,
+          qtyKg: currentQty * product.baseUnitWeight,
+          unitPrice: product.basePricePerUnit,
+          pricePerKg: product.basePricePerKg,
+          unitName: product.unitName,
+          kgName: product.kgName,
+          discountPercent: 0,
+          hasSpecialPrice: false,
+          originalPrice: product.basePricePerUnit,
+        }
       }
       setFormData(prev => ({ ...prev, items: newItems }))
     }
   }
+
+  // Recalculate prices when customer changes
+  React.useEffect(() => {
+    if (formData.customerId && formData.items.length > 0) {
+      const newItems = formData.items.map(item => {
+        if (!item.productId) return item
+        
+        const product = products.find(p => p.id === item.productId)
+        if (!product) return item
+        
+        const customerPrice = findCustomerPrice(item.productId)
+        
+        if (customerPrice) {
+          return {
+            ...item,
+            unitPrice: customerPrice.specialPricePerUnit,
+            pricePerKg: customerPrice.specialPricePerKg,
+            discountPercent: customerPrice.discountPercent,
+            hasSpecialPrice: true,
+            originalPrice: product.basePricePerUnit,
+          }
+        } else {
+          return {
+            ...item,
+            unitPrice: product.basePricePerUnit,
+            pricePerKg: product.basePricePerKg,
+            discountPercent: 0,
+            hasSpecialPrice: false,
+            originalPrice: product.basePricePerUnit,
+          }
+        }
+      })
+      setFormData(prev => ({ ...prev, items: newItems }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.customerId])
 
   // Auto-calculate qtyKg when quantity or unitWeight changes
   React.useEffect(() => {
@@ -312,6 +389,9 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
         unitName: '',
         kgName: '',
         discount: 0,
+        discountPercent: 0,
+        hasSpecialPrice: false,
+        originalPrice: 0,
       }]
     }))
   }
@@ -447,32 +527,48 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
 
               {/* Auto-filled Product Details */}
               {item.productId && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                  <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Kode</span>
-                    <span className="font-medium">{item.productCode}</span>
-                  </div>
-                  <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Berat/Unit</span>
-                    <span className="font-medium">{item.unitWeight} {item.kgName}</span>
-                  </div>
-                  <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Harga/Unit</span>
-                    <span className="font-medium">{formatCurrency(item.unitPrice)}</span>
-                  </div>
-                  <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Harga/Kg</span>
-                    <span className="font-medium">{formatCurrency(item.pricePerKg)}</span>
-                  </div>
-                  <div className="bg-muted/30 p-2 rounded">
-                    <span className="text-muted-foreground block">Total Berat</span>
-                    <span className="font-medium">{item.qtyKg.toFixed(2)} {item.kgName}</span>
+                <div className="space-y-2">
+                  {/* Special Price Badge */}
+                  {item.hasSpecialPrice && (
+                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950/30 rounded border border-green-200 dark:border-green-800">
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                        🏷️ Harga Khusus Customer
+                      </span>
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        (Diskon {item.discountPercent.toFixed(1)}%)
+                      </span>
+                      <span className="text-xs text-muted-foreground line-through ml-auto">
+                        {formatCurrency(item.originalPrice)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                    <div className="bg-muted/30 p-2 rounded">
+                      <span className="text-muted-foreground block">Kode</span>
+                      <span className="font-medium">{item.productCode}</span>
+                    </div>
+                    <div className="bg-muted/30 p-2 rounded">
+                      <span className="text-muted-foreground block">Berat/Unit</span>
+                      <span className="font-medium">{item.unitWeight} {item.kgName}</span>
+                    </div>
+                    <div className={cn("bg-muted/30 p-2 rounded", item.hasSpecialPrice && "bg-green-50 dark:bg-green-950/30")}>
+                      <span className="text-muted-foreground block">Harga/Unit</span>
+                      <span className="font-medium">{formatCurrency(item.unitPrice)}</span>
+                    </div>
+                    <div className={cn("bg-muted/30 p-2 rounded", item.hasSpecialPrice && "bg-green-50 dark:bg-green-950/30")}>
+                      <span className="text-muted-foreground block">Harga/Kg</span>
+                      <span className="font-medium">{formatCurrency(item.pricePerKg)}</span>
+                    </div>
+                    <div className="bg-muted/30 p-2 rounded">
+                      <span className="text-muted-foreground block">Total Berat</span>
+                      <span className="font-medium">{item.qtyKg.toFixed(2)} {item.kgName}</span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Quantity and Discount */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Qty *</label>
                   <Input
@@ -484,12 +580,50 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Diskon</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Diskon % {item.hasSpecialPrice && <span className="text-green-600">(Auto)</span>}
+                  </label>
+                  <Input
+                    type="number"
+                    value={item.discountPercent}
+                    onChange={(e) => {
+                      const newDiscountPercent = parseNumberInput(e.target.value)
+                      const newItems = [...formData.items]
+                      const discountAmount = newItems[index].unitPrice * newDiscountPercent / 100
+                      newItems[index] = { 
+                        ...newItems[index], 
+                        discountPercent: newDiscountPercent,
+                        discount: newItems[index].quantity * discountAmount
+                      }
+                      setFormData(prev => ({ ...prev, items: newItems }))
+                    }}
+                    min={0}
+                    max={100}
+                    disabled={item.hasSpecialPrice}
+                    className={item.hasSpecialPrice ? "bg-green-50 dark:bg-green-950/30" : ""}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Diskon (Rp)</label>
                   <Input
                     type="number"
                     value={item.discount}
-                    onChange={(e) => updateItem(index, 'discount', parseNumberInput(e.target.value))}
+                    onChange={(e) => {
+                      const newDiscount = parseNumberInput(e.target.value)
+                      const newItems = [...formData.items]
+                      const newDiscountPercent = newItems[index].unitPrice > 0 
+                        ? (newDiscount / (newItems[index].quantity * newItems[index].unitPrice)) * 100 
+                        : 0
+                      newItems[index] = { 
+                        ...newItems[index], 
+                        discount: newDiscount,
+                        discountPercent: newDiscountPercent
+                      }
+                      setFormData(prev => ({ ...prev, items: newItems }))
+                    }}
                     min={0}
+                    disabled={item.hasSpecialPrice}
+                    className={item.hasSpecialPrice ? "bg-green-50 dark:bg-green-950/30" : ""}
                   />
                 </div>
                 <div>
@@ -780,10 +914,20 @@ export default function TransactionsPage() {
     },
   })
 
+  // Fetch customer prices
+  const { data: customerPricesResponse, isLoading: customerPricesLoading } = useQuery({
+    queryKey: ['customer-prices'],
+    queryFn: async () => {
+      const response = await api.getCustomerPrices({ pageSize: 500 })
+      return response
+    },
+  })
+
   // Extract data from responses
   const transactions = transactionsResponse?.success ? transactionsResponse.data as Transaction[] : []
   const customers = customersResponse?.success ? customersResponse.data as Customer[] : []
   const products = productsResponse?.success ? productsResponse.data as Product[] : []
+  const customerPrices = customerPricesResponse?.success ? customerPricesResponse.data as CustomerPrice[] : []
 
   // Flatten transactions to items for display
   const transactionItems: TransactionItemDisplay[] = React.useMemo(() => {
@@ -1000,7 +1144,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const isLoading = transactionsLoading || customersLoading || productsLoading
+  const isLoading = transactionsLoading || customersLoading || productsLoading || customerPricesLoading
 
   if (isLoading) {
     return <LoadingScreen />
@@ -1062,6 +1206,7 @@ export default function TransactionsPage() {
           transaction={selectedTransaction || undefined}
           customers={customers || []}
           products={products || []}
+          customerPrices={customerPrices || []}
           salesNames={salesNames}
           paymentMethods={paymentMethods}
           taxRateSetting={taxRateSetting}
