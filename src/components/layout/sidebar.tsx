@@ -41,7 +41,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useIsAdmin } from '@/stores/auth-store'
-import { useAppStore, useSidebar, useThemeState, usePageHeader } from '@/stores/app-store'
+import { useAppStore, useSidebar, usePageHeader } from '@/stores/app-store'
+import { useTheme } from 'next-themes'
 import { ROLE_LABELS } from '@/lib/constants'
 import type { User } from '@/types'
 
@@ -233,7 +234,7 @@ interface UserMenuProps {
 }
 
 function UserMenu({ user, onLogout }: UserMenuProps) {
-  const { theme, setTheme } = useThemeState()
+  const { theme, setTheme } = useTheme()
 
   if (!user) return null
 
@@ -487,7 +488,7 @@ export function Navbar() {
 
 // ============ Theme Toggle ============
 function ThemeToggle() {
-  const { theme, setTheme } = useThemeState()
+  const { theme, setTheme } = useTheme()
 
   return (
     <Button
