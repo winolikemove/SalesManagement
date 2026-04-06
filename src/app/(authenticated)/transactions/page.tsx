@@ -41,6 +41,8 @@ interface AutoCompleteInputProps<T> {
   placeholder?: string
   renderItem?: (item: T) => React.ReactNode
   onClear?: () => void
+  initialValue?: string // For prefill display value
+  disabled?: boolean
 }
 
 function AutoCompleteInput<T extends { id: string }>({
@@ -52,12 +54,21 @@ function AutoCompleteInput<T extends { id: string }>({
   placeholder = 'Type to search...',
   renderItem,
   onClear,
+  initialValue,
+  disabled,
 }: AutoCompleteInputProps<T>) {
-  const [inputValue, setInputValue] = React.useState('')
+  const [inputValue, setInputValue] = React.useState(initialValue || '')
   const [showSuggestions, setShowSuggestions] = React.useState(false)
   const [filteredItems, setFilteredItems] = React.useState<T[]>([])
   const inputRef = React.useRef<HTMLInputElement>(null)
   const suggestionsRef = React.useRef<HTMLDivElement>(null)
+  
+  // Sync inputValue when initialValue changes (for prefill)
+  React.useEffect(() => {
+    if (initialValue && initialValue !== inputValue) {
+      setInputValue(initialValue)
+    }
+  }, [initialValue])
 
   // Filter items based on input
   React.useEffect(() => {
@@ -118,10 +129,13 @@ function AutoCompleteInput<T extends { id: string }>({
           onChange={handleInputChange}
           onFocus={() => {
             setShowSuggestions(true)
-            setInputValue('') // Clear to show suggestions
+            if (!initialValue) {
+              setInputValue('') // Clear to show suggestions only if no prefill
+            }
           }}
           placeholder={placeholder}
           className="pr-8"
+          disabled={disabled}
         />
         {inputValue && (
           <button
@@ -521,6 +535,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
             displayKey="customerName"
             valueKey="id"
             placeholder="Ketik nama customer..."
+            initialValue={prefillData?.customerName}
             renderItem={(customer) => (
               <div>
                 <span className="font-medium">{customer.customerName}</span>
@@ -1480,33 +1495,35 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       {/* Header with Fulfillment Cards */}
-      <div className="flex items-start justify-between gap-4">
-        <PageHeader title="Transactions" description="Kelola transaksi penjualan">
-          <Button onClick={() => { setSelectedTransaction(null); setPrefillData(null); setOpenDialog(true) }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Transaksi Baru
-          </Button>
-        </PageHeader>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <PageHeader title="Transactions" description="Kelola transaksi penjualan">
+            <Button onClick={() => { setSelectedTransaction(null); setPrefillData(null); setOpenDialog(true) }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Transaksi Baru
+            </Button>
+          </PageHeader>
+        </div>
         
-        {/* Fulfillment Status Cards */}
-        <div className="flex gap-3 shrink-0">
+        {/* Fulfillment Status Cards - Mobile Friendly */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {/* Unfulfilled Card */}
           <Card 
-            className="w-40 cursor-pointer hover:shadow-md transition-shadow border-red-200 dark:border-red-800"
+            className="cursor-pointer hover:shadow-md transition-shadow border-red-200 dark:border-red-800"
             onClick={() => handleFulfillmentCardClick('UNFULFILLED')}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-2 sm:p-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-md">
-                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <div className="p-1.5 sm:p-2 bg-red-100 dark:bg-red-900/30 rounded-md">
+                  <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{fulfillmentSummary.unfulfilledCount}</p>
-                  <p className="text-xs text-muted-foreground">Belum Terpenuhi</p>
+                  <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">{fulfillmentSummary.unfulfilledCount}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Belum Terpenuhi</p>
                 </div>
               </div>
               {fulfillmentSummary.unfulfilled.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-2">
                   {fulfillmentSummary.unfulfilled.length} customer
                 </p>
               )}
@@ -1515,21 +1532,21 @@ export default function TransactionsPage() {
           
           {/* Partial Card */}
           <Card 
-            className="w-40 cursor-pointer hover:shadow-md transition-shadow border-yellow-200 dark:border-yellow-800"
+            className="cursor-pointer hover:shadow-md transition-shadow border-yellow-200 dark:border-yellow-800"
             onClick={() => handleFulfillmentCardClick('PARTIAL')}
           >
-            <CardContent className="p-3">
+            <CardContent className="p-2 sm:p-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md">
-                  <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <div className="p-1.5 sm:p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-md">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600 dark:text-yellow-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{fulfillmentSummary.partialCount}</p>
-                  <p className="text-xs text-muted-foreground">Sebagian</p>
+                  <p className="text-lg sm:text-2xl font-bold text-yellow-600 dark:text-yellow-400">{fulfillmentSummary.partialCount}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Sebagian</p>
                 </div>
               </div>
               {fulfillmentSummary.partial.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 sm:mt-2">
                   {fulfillmentSummary.partial.length} customer
                 </p>
               )}
