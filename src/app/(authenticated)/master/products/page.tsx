@@ -59,10 +59,9 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
     description: product?.description || '',
   })
 
-  // Handler untuk perhitungan otomatis yang fleksibel
-  // User bebas memilih field mana yang diinput, field lain dihitung otomatis
+  // Handler untuk perhitungan otomatis satu arah
+  // Price per Unit = Weight × Price per Kg (auto-calculated, read-only)
   const handleUnitWeightChange = (value: number) => {
-    // Price per Unit = Weight × Price per Kg
     const pricePerUnit = value * formData.basePricePerKg
     setFormData(prev => ({ 
       ...prev, 
@@ -72,48 +71,12 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
   }
 
   const handlePricePerKgChange = (value: number) => {
-    // Jika Price per Unit sudah ada → Weight = Price per Unit / Price per Kg
-    // Jika Weight sudah ada → Price per Unit = Weight × Price per Kg
-    if (formData.basePricePerUnit > 0 && value > 0) {
-      const weight = formData.basePricePerUnit / value
-      setFormData(prev => ({ 
-        ...prev, 
-        basePricePerKg: value,
-        baseUnitWeight: weight 
-      }))
-    } else {
-      const pricePerUnit = formData.baseUnitWeight * value
-      setFormData(prev => ({ 
-        ...prev, 
-        basePricePerKg: value,
-        basePricePerUnit: pricePerUnit 
-      }))
-    }
-  }
-
-  const handlePricePerUnitChange = (value: number) => {
-    // Jika Weight sudah ada → Price per Kg = Price per Unit / Weight
-    // Jika Price per Kg sudah ada → Weight = Price per Unit / Price per Kg
-    if (formData.baseUnitWeight > 0) {
-      const pricePerKg = value / formData.baseUnitWeight
-      setFormData(prev => ({ 
-        ...prev, 
-        basePricePerUnit: value,
-        basePricePerKg: pricePerKg 
-      }))
-    } else if (formData.basePricePerKg > 0) {
-      const weight = value / formData.basePricePerKg
-      setFormData(prev => ({ 
-        ...prev, 
-        basePricePerUnit: value,
-        baseUnitWeight: weight 
-      }))
-    } else {
-      setFormData(prev => ({ 
-        ...prev, 
-        basePricePerUnit: value 
-      }))
-    }
+    const pricePerUnit = formData.baseUnitWeight * value
+    setFormData(prev => ({ 
+      ...prev, 
+      basePricePerKg: value,
+      basePricePerUnit: pricePerUnit 
+    }))
   }
 
   // Auto-calculate kg stock from unit weight and unit qty
@@ -219,42 +182,42 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
         <h4 className="font-medium mb-3">Pricing</h4>
         <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg mb-4">
           <p className="text-xs text-blue-700 dark:text-blue-300">
-            💡 <strong>Tips:</strong> Isi salah satu field dan field lainnya akan dihitung otomatis.
-            <br />• Weight × Price/Kg = Price/Unit
-            <br />• Price/Unit ÷ Weight = Price/Kg
+            💡 <strong>Formula:</strong> Price per Unit = Unit Weight × Price per Kg
+            <br />Price per Unit akan dihitung otomatis berdasarkan input di atas.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Unit Weight (Kg)</label>
+            <label className="text-sm font-medium">Unit Weight (Kg) *</label>
             <NumberInput
               value={formData.baseUnitWeight}
               onChange={handleUnitWeightChange}
               placeholder="Weight per unit"
               allowDecimal
+              required
             />
-            <p className="text-xs text-muted-foreground">= Price/Unit ÷ Price/Kg</p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Price per Kg (Rp)</label>
+            <label className="text-sm font-medium">Price per Kg (Rp) *</label>
             <NumberInput
               value={formData.basePricePerKg}
               onChange={handlePricePerKgChange}
               placeholder="Price per Kg"
               allowDecimal
-            />
-            <p className="text-xs text-muted-foreground">= Price/Unit ÷ Weight</p>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Price per Unit (Rp) *</label>
-            <NumberInput
-              value={formData.basePricePerUnit}
-              onChange={handlePricePerUnitChange}
-              placeholder="Price per unit"
-              allowDecimal
               required
             />
-            <p className="text-xs text-muted-foreground">= Weight × Price/Kg</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Price per Unit (Rp)</label>
+            <NumberInput
+              value={formData.basePricePerUnit}
+              onChange={() => {}}
+              placeholder="Auto-calculated"
+              allowDecimal
+              disabled
+              className="bg-muted"
+            />
+            <p className="text-xs text-muted-foreground">Auto: Weight × Price/Kg</p>
           </div>
         </div>
         <div className="flex items-center space-x-2 mt-4">

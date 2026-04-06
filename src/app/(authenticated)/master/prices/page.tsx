@@ -50,12 +50,10 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
   const selectedProduct = products.find(p => p.id === formData.productId)
   const selectedCustomer = customers.find(c => c.id === formData.customerId)
 
-  // Handler untuk perhitungan otomatis yang fleksibel
-  // Price per Kg × Unit Weight = Price per Unit
-  // Price per Kg = Price per Unit / Unit Weight
+  // Handler untuk perhitungan otomatis satu arah
+  // Price per Unit = Price per Kg × Product Unit Weight (auto-calculated, read-only)
   const handlePricePerKgChange = (value: number) => {
     if (selectedProduct) {
-      // Price per Unit = Price per Kg × Unit Weight
       const pricePerUnit = value * selectedProduct.baseUnitWeight
       setFormData(prev => ({ 
         ...prev, 
@@ -64,20 +62,6 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
       }))
     } else {
       setFormData(prev => ({ ...prev, specialPricePerKg: value }))
-    }
-  }
-
-  const handlePricePerUnitChange = (value: number) => {
-    if (selectedProduct && selectedProduct.baseUnitWeight > 0) {
-      // Price per Kg = Price per Unit / Unit Weight
-      const pricePerKg = value / selectedProduct.baseUnitWeight
-      setFormData(prev => ({ 
-        ...prev, 
-        specialPricePerUnit: value,
-        specialPricePerKg: pricePerKg 
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, specialPricePerUnit: value }))
     }
   }
 
@@ -155,22 +139,21 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
 
       <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg mb-2">
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          💡 <strong>Tips:</strong> Isi salah satu harga dan yang lainnya akan dihitung otomatis.
-          <br />• Price/Kg × Weight = Price/Unit
-          <br />• Price/Unit ÷ Weight = Price/Kg
+          💡 <strong>Formula:</strong> Price per Unit = Price per Kg × Unit Weight
+          <br />Price per Unit akan dihitung otomatis berdasarkan berat produk.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Special Price/Kg (Rp)</label>
+          <label className="text-sm font-medium">Special Price/Kg (Rp) *</label>
           <NumberInput
             value={formData.specialPricePerKg}
             onChange={handlePricePerKgChange}
             placeholder="Enter price per kg"
             allowDecimal
+            required
           />
-          <p className="text-xs text-muted-foreground">= Price/Unit ÷ Weight</p>
           {selectedProduct && formData.specialPricePerKg > 0 && (
             <p className={formData.specialPricePerKg < selectedProduct.basePricePerKg ? 'text-green-600 text-xs' : 'text-red-600 text-xs'}>
               {formData.specialPricePerKg < selectedProduct.basePricePerKg ? 'Diskon: ' : 'Markup: '}
@@ -179,15 +162,16 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
           )}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Special Price/Unit (Rp) *</label>
+          <label className="text-sm font-medium">Special Price/Unit (Rp)</label>
           <NumberInput
             value={formData.specialPricePerUnit}
-            onChange={handlePricePerUnitChange}
-            placeholder="Enter price per unit"
+            onChange={() => {}}
+            placeholder="Auto-calculated"
             allowDecimal
-            required
+            disabled
+            className="bg-muted"
           />
-          <p className="text-xs text-muted-foreground">= Price/Kg × Weight</p>
+          <p className="text-xs text-muted-foreground">Auto: Price/Kg × Weight</p>
         </div>
       </div>
 
