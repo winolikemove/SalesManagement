@@ -115,6 +115,48 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   CUSTOMER: 'Target Customer',
 }
 
+// ============ Target Periods ============
+export const TARGET_PERIODS = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  QUARTERLY: 'QUARTERLY',
+  YEARLY: 'YEARLY',
+} as const
+
+export const TARGET_PERIOD_LABELS: Record<string, string> = {
+  DAILY: 'Harian',
+  WEEKLY: 'Mingguan',
+  MONTHLY: 'Bulanan',
+  QUARTERLY: 'Triwulan',
+  YEARLY: 'Tahunan',
+}
+
+// ============ Transaction Status ============
+export const TRANSACTION_STATUS = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+} as const
+
+export const TRANSACTION_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Menunggu',
+  CONFIRMED: 'Dikonfirmasi',
+  PROCESSING: 'Diproses',
+  COMPLETED: 'Selesai',
+  CANCELLED: 'Dibatalkan',
+}
+
+export const TRANSACTION_STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  CONFIRMED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  PROCESSING: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+}
+
 // ============ Default Categories ============
 export const DEFAULT_CATEGORIES = [
   'Semen',

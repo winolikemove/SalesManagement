@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +21,7 @@ import { useAppStore } from '@/stores/app-store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, isLoading, error, setError, isAuthenticated } = useAuthStore()
@@ -44,6 +45,7 @@ export default function LoginPage() {
     if (error) {
       setError(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, password])
 
   // Auto-fill demo credentials in mock mode
@@ -76,188 +78,219 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo & Title */}
-        <div className="flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-            T
-          </div>
-          <h1 className="text-3xl font-bold">TransMan</h1>
-          <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
+    <div className="w-full max-w-md space-y-8">
+      {/* Logo & Title */}
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
+          T
         </div>
+        <h1 className="text-3xl font-bold">TransMan</h1>
+        <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
+      </div>
 
-        {/* Mock Mode Indicator */}
-        {isMockMode && (
-          <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-            <TestTube className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="text-blue-800 dark:text-blue-200">Mode Demo Aktif</AlertTitle>
-            <AlertDescription className="text-blue-700 dark:text-blue-300">
-              Anda sedang menggunakan data dummy untuk testing. Kredensial demo sudah terisi otomatis.
-              <Button
-                variant="link"
-                className="p-0 h-auto ml-1 text-blue-600 dark:text-blue-400"
-                onClick={fillDemoCredentials}
-              >
-                Reset kredensial
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+      {/* Mock Mode Indicator */}
+      {isMockMode && (
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+          <TestTube className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-blue-800 dark:text-blue-200">Mode Demo Aktif</AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
+            Anda sedang menggunakan data dummy untuk testing. Kredensial demo sudah terisi otomatis.
+            <Button
+              variant="link"
+              className="p-0 h-auto ml-1 text-blue-600 dark:text-blue-400"
+              onClick={fillDemoCredentials}
+            >
+              Reset kredensial
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* Login Card */}
-        <Card>
-          <CardHeader className="space-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">Masuk</CardTitle>
-                <CardDescription>
-                  Masukkan kredensial untuk mengakses akun Anda
-                </CardDescription>
-              </div>
-              <Badge variant={isMockMode ? "default" : "secondary"}>
-                {isMockMode ? 'Demo' : 'Live'}
-              </Badge>
+      {/* Login Card */}
+      <Card>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl">Masuk</CardTitle>
+              <CardDescription>
+                Masukkan kredensial untuk mengakses akun Anda
+              </CardDescription>
             </div>
-          </CardHeader>
+            <Badge variant={isMockMode ? "default" : "secondary"}>
+              {isMockMode ? 'Demo' : 'Live'}
+            </Badge>
+          </div>
+        </CardHeader>
 
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              {/* Error Alert */}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-              {/* Demo Credentials Info (Mock Mode Only) */}
-              {isMockMode && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Demo Credentials</AlertTitle>
-                  <AlertDescription>
-                    <div className="mt-2 text-sm">
-                      <p><strong>Username:</strong> admin</p>
-                      <p><strong>Password:</strong> admin123</p>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
+            {/* Demo Credentials Info (Mock Mode Only) */}
+            {isMockMode && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Demo Credentials</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 text-sm">
+                    <p><strong>Username:</strong> admin</p>
+                    <p><strong>Password:</strong> admin123</p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
-              {/* Username */}
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+            {/* Username */}
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Masukkan username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isLoading}
+                autoComplete="username"
+              />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Masukkan username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Masukkan password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  autoComplete="username"
+                  autoComplete="current-password"
+                  className="pr-10"
                 />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Masukkan password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span className="sr-only">
-                      {showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                    </span>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                    disabled={isLoading}
-                  />
-                  <Label
-                    htmlFor="remember"
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Ingat saya
-                  </Label>
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memproses...
-                  </>
-                ) : (
-                  'Masuk'
-                )}
-              </Button>
-
-              {/* Toggle Mock Mode */}
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span>Mode: {isMockMode ? 'Demo' : 'Production'}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={toggleMockMode}
-                  className="h-auto py-1 px-2 text-xs"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
                 >
-                  Ganti ke {isMockMode ? 'Production' : 'Demo'}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="sr-only">
+                    {showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  </span>
                 </Button>
               </div>
-            </CardFooter>
-          </form>
-        </Card>
+            </div>
 
-        {/* Available Users (Mock Mode) */}
-        {isMockMode && (
-          <Card className="bg-muted/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Akun Demo Tersedia</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              <div className="space-y-1">
-                <p><strong>SuperAdmin:</strong> admin / admin123</p>
-                <p><strong>Sales:</strong> sales1 / admin123</p>
-                <p><strong>Manager:</strong> manager / admin123</p>
-                <p><strong>Driver:</strong> driver1 / admin123</p>
+            {/* Remember Me */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  disabled={isLoading}
+                />
+                <Label
+                  htmlFor="remember"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Ingat saya
+                </Label>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex flex-col gap-4">
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                'Masuk'
+              )}
+            </Button>
+
+            {/* Toggle Mock Mode */}
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <span>Mode: {isMockMode ? 'Demo' : 'Production'}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={toggleMockMode}
+                className="h-auto py-1 px-2 text-xs"
+              >
+                Ganti ke {isMockMode ? 'Production' : 'Demo'}
+              </Button>
+            </div>
+          </CardFooter>
+        </form>
+      </Card>
+
+      {/* Available Users (Mock Mode) */}
+      {isMockMode && (
+        <Card className="bg-muted/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Akun Demo Tersedia</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            <div className="space-y-1">
+              <p><strong>SuperAdmin:</strong> admin / admin123</p>
+              <p><strong>Sales:</strong> sales1 / admin123</p>
+              <p><strong>Manager:</strong> manager / admin123</p>
+              <p><strong>Driver:</strong> driver1 / admin123</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+function LoginLoading() {
+  return (
+    <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
+          T
+        </div>
+        <h1 className="text-3xl font-bold">TransMan</h1>
+        <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Masuk</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <Suspense fallback={<LoginLoading />}>
+        <LoginForm />
+      </Suspense>
     </div>
   )
 }
