@@ -187,6 +187,7 @@ interface TransactionItemFormData {
   fulfillmentStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED'
   qtyFulfilledUnit: number
   qtyFulfilledKg: number
+  maxQty?: number // For prefill: maximum allowed qty (remaining qty to fulfill)
 }
 
 interface TransactionFormData {
@@ -616,6 +617,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                   displayKey="productName"
                   valueKey="id"
                   placeholder="Ketik nama barang..."
+                  initialValue={item.productName}
                   renderItem={(product) => (
                     <div className="flex justify-between items-center">
                       <div>
@@ -675,12 +677,21 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
               {/* Quantity and Discount */}
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-2">
-                  <label className="text-xs text-muted-foreground mb-1 block">Qty *</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Qty {item.maxQty && <span className="text-orange-500">(Max: {item.maxQty})</span>} *
+                  </label>
                   <NumberInput
                     value={item.quantity}
-                    onChange={(value) => updateItem(index, 'quantity', value)}
+                    onChange={(value) => {
+                      // Check if exceeds maxQty (for prefill items)
+                      if (item.maxQty && value > item.maxQty) {
+                        alert(`Peringatan: Qty melebihi jumlah yang perlu dipenuhi (${item.maxQty} ${item.unitName})`)
+                      }
+                      updateItem(index, 'quantity', value)
+                    }}
                     min={1}
                     required
+                    className={item.maxQty && item.quantity > item.maxQty ? "border-orange-500 focus-visible:ring-orange-500" : ""}
                   />
                 </div>
                 <div className="col-span-3">
@@ -1277,6 +1288,7 @@ export default function TransactionsPage() {
       fulfillmentStatus: 'UNFULFILLED' as const,
       qtyFulfilledUnit: 0,
       qtyFulfilledKg: 0,
+      maxQty: item.qtyRemaining, // Set max qty for validation
     }))
 
     setPrefillData({
@@ -1755,8 +1767,8 @@ export default function TransactionsPage() {
         title={fulfillmentFilter === 'UNFULFILLED' ? 'Item Belum Terpenuhi' : 'Item Sebagian Terkirim'}
         maxWidth="lg"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-3">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Klik customer untuk membuat transaksi baru dengan item yang perlu dipenuhi
           </p>
           
@@ -1774,51 +1786,69 @@ export default function TransactionsPage() {
             }
 
             return (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {customerList.map((customer) => (
-                  <Card 
+                  <Card
                     key={customer.customerId}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    className={cn(
+                      "cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] border-l-4",
+                      fulfillmentFilter === 'UNFULFILLED' ? 'border-l-red-500' : 'border-l-yellow-500'
+                    )}
                     onClick={() => handleCustomerClick(customer)}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{customer.customerName}</p>
-                          <p className="text-xs text-muted-foreground">{customer.customerCode}</p>
-                          {customer.customerPhone && (
-                            <p className="text-xs text-muted-foreground">{customer.customerPhone}</p>
-                          )}
+                    <CardContent className="p-3 sm:p-4">
+                      {/* Header: Customer Info + Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={cn(
+                            "p-2 rounded-full",
+                            fulfillmentFilter === 'UNFULFILLED' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'
+                          )}>
+                            {fulfillmentFilter === 'UNFULFILLED' 
+                              ? <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              : <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                            }
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{customer.customerName}</p>
+                            <p className="text-[10px] text-muted-foreground">{customer.customerCode}</p>
+                          </div>
                         </div>
-                        <Badge className={fulfillmentFilter === 'UNFULFILLED' 
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' 
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }>
+                        <Badge className={cn(
+                          "shrink-0",
+                          fulfillmentFilter === 'UNFULFILLED' 
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' 
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        )}>
                           {customer.items.length} item
                         </Badge>
                       </div>
                       
                       {/* Items Preview */}
-                      <div className="mt-3 pt-3 border-t">
+                      <div className="mt-2 pt-2 border-t">
                         <div className="space-y-1">
                           {customer.items.slice(0, 3).map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
-                              <span>{item.productName}</span>
-                              <span className="text-muted-foreground">
-                                {item.qtyRemaining} {item.unitName} tersisa
+                            <div key={idx} className="flex justify-between text-[10px] sm:text-xs gap-2">
+                              <span className="truncate">{item.productName}</span>
+                              <span className={cn(
+                                "shrink-0 font-medium",
+                                fulfillmentFilter === 'UNFULFILLED' ? 'text-red-600' : 'text-yellow-600'
+                              )}>
+                                {item.qtyRemaining} {item.unitName}
                               </span>
                             </div>
                           ))}
                           {customer.items.length > 3 && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground">
                               +{customer.items.length - 3} item lainnya
                             </p>
                           )}
                         </div>
                       </div>
                       
+                      {/* Action Button */}
                       <div className="mt-2 flex justify-end">
-                        <Button variant="outline" size="sm">
+                        <Button variant="default" size="sm" className="text-xs h-7">
                           <Plus className="h-3 w-3 mr-1" /> Buat Transaksi
                         </Button>
                       </div>
