@@ -407,8 +407,10 @@ async function mockApiCall<T = unknown>(options: ApiRequestOptions): Promise<Api
       return mockApi.deliveries.list(data) as Promise<ApiResponse<T>>
     case 'deliveries.get':
       return mockApi.deliveries.get(data.id as string) as Promise<ApiResponse<T>>
+    case 'deliveries.create':
+      return mockApi.deliveries.create(data) as Promise<ApiResponse<T>>
     case 'deliveries.updateStatus':
-      return mockApi.deliveries.updateStatus(data.id as string, data.status as string) as Promise<ApiResponse<T>>
+      return mockApi.deliveries.updateStatus(data.id as string, data.status as string, data.receiverName as string) as Promise<ApiResponse<T>>
     
     // Targets
     case 'targets.list':
@@ -522,7 +524,9 @@ export const api = {
   // Deliveries
   getDeliveries: (params?: Record<string, unknown>) => apiCall({ action: 'deliveries.list', data: params }),
   getDelivery: (id: string) => apiCall({ action: 'deliveries.get', data: { id } }),
-  updateDeliveryStatus: (id: string, status: string) => apiCall({ action: 'deliveries.updateStatus', data: { id, status } }),
+  createDelivery: (data: Record<string, unknown>) => apiCall({ action: 'deliveries.create', data }),
+  updateDeliveryStatus: (id: string, status: string, receiverName?: string) =>
+    apiCall({ action: 'deliveries.updateStatus', data: { id, status, receiverName } }),
 
   // Targets
   getTargets: (params?: Record<string, unknown>) => apiCall({ action: 'targets.list', data: params }),

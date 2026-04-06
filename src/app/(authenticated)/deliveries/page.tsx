@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Eye, Truck, CheckCircle, MapPin, XCircle } from 'lucide-react'
@@ -14,6 +15,7 @@ import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, FULFILLMENT_STATUS_LABE
 import { NumberInput } from '@/components/ui/number-input'
 import { usePageHeader } from '@/stores/app-store'
 import { api } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
 import type { Delivery, Transaction, Driver, Vehicle, ApiResponse, Customer, TransactionItem, DeliveryItem } from '@/types'
 
 // ============ Delivery Form Component ============
@@ -56,12 +58,13 @@ interface DeliveryFormData {
   items: DeliveryItemFormData[]
 }
 
-function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, onSubmit, onCancel, loading }: {
+function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, preselectedTransactionId, onSubmit, onCancel, loading }: {
   delivery?: Delivery
   drivers: Driver[]
   vehicles: Vehicle[]
   transactions: Transaction[]
   customers?: Customer[]
+  preselectedTransactionId?: string
   onSubmit: (data: DeliveryFormData) => void
   onCancel: () => void
   loading?: boolean
@@ -106,6 +109,53 @@ function DeliveryForm({ delivery, drivers, vehicles, transactions, customers, on
         })) || [],
       }
     }
+    
+    // If we have a preselected transaction, use it
+    if (preselectedTransactionId) {
+      const preselectedTx = transactions.find(t => t.id === preselectedTransactionId)
+      if (preselectedTx) {
+        const customer = customers?.find(c => c.id === preselectedTx.customerId)
+        const items: DeliveryItemFormData[] = preselectedTx.items?.map(item => ({
+          transactionItemId: item.id,
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
+          qtyOrdered: item.qtyOrderUnit,
+          qtyFulfilled: item.qtyFulfilledUnit || 0,
+          qtyRemaining: item.qtyOrderUnit - (item.qtyFulfilledUnit || 0),
+          qtyToDeliver: item.qtyOrderUnit - (item.qtyFulfilledUnit || 0),
+          unitWeight: item.unitWeight,
+          unitName: item.unitName,
+          kgName: item.kgName,
+        })).filter(item => item.qtyRemaining > 0) || []
+        
+        return {
+          transactionId: preselectedTx.id,
+          invoiceNumber: preselectedTx.invoiceNumber || '',
+          customerId: preselectedTx.customerId,
+          customerCode: preselectedTx.customerCode,
+          customerName: preselectedTx.customerName,
+          customerAddress: preselectedTx.customerAddress || '',
+          customerPhone: preselectedTx.customerPhone || '',
+          googleMapsUrl: customer?.googleMapsUrl || '',
+          driverId: '',
+          driverName: '',
+          driverPhone: '',
+          vehicleId: '',
+          vehiclePlate: '',
+          vehicleType: '',
+          deliveryDate: new Date().toISOString().split('T')[0],
+          deliveryTime: '',
+          receiverName: '',
+          deliveryStatus: 'PENDING',
+          totalItems: items.filter(i => i.qtyToDeliver > 0).length,
+          totalWeight: items.reduce((sum, i) => sum + i.qtyToDeliver * i.unitWeight, 0),
+          notes: '',
+          items,
+        }
+      }
+    }
+    
     return {
       transactionId: '',
       invoiceNumber: '',
@@ -714,17 +764,28 @@ function StatusUpdateDialog({
 // ============ Deliveries Page ============
 export default function DeliveriesPage() {
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
   const [selectedDelivery, setSelectedDelivery] = React.useState<Delivery | null>(null)
   const [statusDialog, setStatusDialog] = React.useState(false)
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
+  
+  // Pre-selected transaction ID from URL query param
+  const preselectedTransactionId = searchParams.get('createDelivery')
 
   React.useEffect(() => {
     setPageTitle('Deliveries')
     setBreadcrumbs([{ title: 'Deliveries' }])
   }, [setPageTitle, setBreadcrumbs])
+
+  // Auto-open dialog when coming from transactions page with preselected transaction
+  React.useEffect(() => {
+    if (preselectedTransactionId && !openDialog) {
+      setOpenDialog(true)
+    }
+  }, [preselectedTransactionId])
 
   // Fetch deliveries
   const { data: deliveriesResponse, isLoading: isLoadingDeliveries } = useQuery({
@@ -770,12 +831,66 @@ export default function DeliveriesPage() {
   const customers = customersResponse?.data || []
 
   // Mutations
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return api.updateDeliveryStatus(id, status)
+  const createDeliveryMutation = useMutation({
+    mutationFn: async (data: DeliveryFormData) => {
+      return api.createDelivery({
+        transactionId: data.transactionId,
+        invoiceNumber: data.invoiceNumber,
+        customerId: data.customerId,
+        customerCode: data.customerCode,
+        customerName: data.customerName,
+        customerAddress: data.customerAddress,
+        customerPhone: data.customerPhone,
+        googleMapsUrl: data.googleMapsUrl,
+        driverId: data.driverId,
+        driverName: data.driverName,
+        driverPhone: data.driverPhone,
+        vehicleId: data.vehicleId,
+        vehiclePlate: data.vehiclePlate,
+        vehicleType: data.vehicleType,
+        deliveryDate: data.deliveryDate,
+        totalItems: data.totalItems,
+        totalWeight: data.totalWeight,
+        notes: data.notes,
+        items: data.items.map(item => ({
+          transactionItemId: item.transactionItemId,
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
+          qtyToDeliver: item.qtyToDeliver,
+          unitWeight: item.unitWeight,
+          unitName: item.unitName,
+          kgName: item.kgName,
+        })),
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions-for-delivery'] })
+      setOpenDialog(false)
+      setSelectedDelivery(null)
+      toast({
+        title: "Berhasil",
+        description: "Pengiriman berhasil dibuat dan transaksi telah diupdate",
+      })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Gagal",
+        description: error.message || "Gagal membuat pengiriman",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status, receiverName }: { id: string; status: string; receiverName?: string }) => {
+      return api.updateDeliveryStatus(id, status, receiverName)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
       setStatusDialog(false)
     },
   })
@@ -783,7 +898,7 @@ export default function DeliveriesPage() {
   // Handle status update with additional data
   const handleStatusUpdate = (status: string, receiverName?: string, notes?: string) => {
     if (!selectedDelivery) return
-    updateStatusMutation.mutate({ id: selectedDelivery.id, status })
+    updateStatusMutation.mutate({ id: selectedDelivery.id, status, receiverName })
   }
 
   // Columns
@@ -944,17 +1059,14 @@ export default function DeliveriesPage() {
   ]
 
   const handleSubmit = (data: DeliveryFormData) => {
-    // Delivery creation/update
     if (selectedDelivery) {
-      // For updates
+      // For updates - currently not implemented
       console.log('Update delivery:', data)
+      setOpenDialog(false)
     } else {
-      // For new delivery
-      console.log('Create delivery:', data)
+      // For new delivery - call the mutation
+      createDeliveryMutation.mutate(data)
     }
-    setOpenDialog(false)
-    queryClient.invalidateQueries({ queryKey: ['deliveries'] })
-    queryClient.invalidateQueries({ queryKey: ['transactions'] })
   }
 
   if (isLoadingDeliveries) {
@@ -1003,9 +1115,10 @@ export default function DeliveriesPage() {
           vehicles={vehicles}
           transactions={transactions}
           customers={customers}
+          preselectedTransactionId={preselectedTransactionId || undefined}
           onSubmit={handleSubmit}
           onCancel={() => setOpenDialog(false)}
-          loading={false}
+          loading={createDeliveryMutation.isPending}
         />
       </ModalForm>
 

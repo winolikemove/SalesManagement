@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef, ColumnFiltersState, SortingState, getFilteredRowModel } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Search, X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Search, X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Clock, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -1085,6 +1086,7 @@ function TransactionItemsTable({ items, products }: TransactionItemsTableProps) 
 // ============ Transactions Page ============
 export default function TransactionsPage() {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const { setPageTitle, setBreadcrumbs } = usePageHeader()
   const salesNames = useSalesNames()
   const paymentMethods = usePaymentMethods()
@@ -1809,6 +1811,21 @@ export default function TransactionsPage() {
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setViewDialog(false)}>Tutup</Button>
+              {/* Show Create Delivery button if transaction has unfulfilled items */}
+              {detailedTransaction.items?.some(item => 
+                (item.qtyOrderUnit - (item.qtyFulfilledUnit || 0)) > 0
+              ) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setViewDialog(false)
+                    // Navigate to deliveries page with transaction ID
+                    router.push(`/deliveries?createDelivery=${detailedTransaction.id}`)
+                  }}
+                >
+                  <Truck className="h-4 w-4 mr-1" /> Buat Pengiriman
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {

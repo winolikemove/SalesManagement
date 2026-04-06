@@ -1140,7 +1140,135 @@ export const mockDeliveriesApi = {
     }
   },
   
-  updateStatus: async (id: string, status: string): Promise<ApiResponse> => {
+  create: async (data: Record<string, unknown>): Promise<ApiResponse> => {
+    await mockApiDelay(MOCK_DELAY)
+    
+    // Generate delivery number
+    const deliveryCount = mockDeliveries.length + 1
+    const deliveryNumber = `SJ-${new Date().getFullYear()}-${String(deliveryCount).padStart(4, '0')}`
+    
+    // Create delivery record
+    const newDelivery = {
+      id: 'del-' + Date.now(),
+      deliveryNumber,
+      deliveryDate: String(data.deliveryDate || new Date().toISOString().split('T')[0]),
+      transactionId: String(data.transactionId),
+      invoiceNumber: String(data.invoiceNumber),
+      customerId: String(data.customerId),
+      customerCode: String(data.customerCode),
+      customerName: String(data.customerName),
+      customerAddress: String(data.customerAddress || ''),
+      customerPhone: String(data.customerPhone || ''),
+      googleMapsUrl: String(data.googleMapsUrl || ''),
+      driverId: String(data.driverId || ''),
+      driverName: String(data.driverName || ''),
+      driverPhone: String(data.driverPhone || ''),
+      vehicleId: String(data.vehicleId || ''),
+      vehiclePlate: String(data.vehiclePlate || ''),
+      vehicleType: String(data.vehicleType || ''),
+      totalItems: Number(data.totalItems) || 0,
+      totalWeight: Number(data.totalWeight) || 0,
+      deliveryStatus: 'PENDING' as const,
+      notes: String(data.notes || ''),
+      createdAt: new Date().toISOString(),
+      createdBy: 'mock-user'
+    }
+    
+    mockDeliveries.push(newDelivery)
+    
+    // Create delivery items and update transaction items
+    const items = data.items as Array<{
+      transactionItemId: string
+      productId: string
+      productCode: string
+      productName: string
+      qtyToDeliver: number
+      unitWeight: number
+      unitName: string
+      kgName: string
+    }> || []
+    
+    const transactionIndex = mockTransactions.findIndex(t => t.id === data.transactionId)
+    
+    for (const item of items) {
+      if (item.qtyToDeliver > 0) {
+        // Create delivery item
+        const deliveryItem = {
+          id: 'del-item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+          deliveryId: newDelivery.id,
+          deliveryNumber,
+          transactionItemId: item.transactionItemId,
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.productName,
+          qtyDeliveredUnit: item.qtyToDeliver,
+          qtyDeliveredKg: item.qtyToDeliver * item.unitWeight,
+          unitName: item.unitName,
+          kgName: item.kgName,
+          notes: '',
+          createdAt: new Date().toISOString()
+        }
+        mockDeliveryItems.push(deliveryItem)
+        
+        // Update transaction item - increment fulfilled quantity immediately when delivery is created
+        if (transactionIndex !== -1) {
+          const transaction = mockTransactions[transactionIndex]
+          const txItemIndex = transaction.items?.findIndex(i => i.id === item.transactionItemId)
+          
+          if (txItemIndex !== undefined && txItemIndex !== -1 && transaction.items) {
+            const txItem = transaction.items[txItemIndex]
+            const newQtyFulfilledUnit = (txItem.qtyFulfilledUnit || 0) + item.qtyToDeliver
+            const newQtyFulfilledKg = newQtyFulfilledUnit * txItem.unitWeight
+            const qtyRemaining = txItem.qtyOrderUnit - newQtyFulfilledUnit
+            
+            let newFulfillmentStatus: 'UNFULFILLED' | 'PARTIAL' | 'FULFILLED' = 'UNFULFILLED'
+            if (qtyRemaining <= 0) {
+              newFulfillmentStatus = 'FULFILLED'
+            } else if (newQtyFulfilledUnit > 0) {
+              newFulfillmentStatus = 'PARTIAL'
+            }
+            
+            transaction.items[txItemIndex] = {
+              ...txItem,
+              qtyFulfilledUnit: newQtyFulfilledUnit,
+              qtyFulfilledKg: newQtyFulfilledKg,
+              qtyUnfulfilledUnit: Math.max(0, qtyRemaining),
+              qtyUnfulfilledKg: Math.max(0, qtyRemaining * txItem.unitWeight),
+              fulfillmentStatus: newFulfillmentStatus
+            }
+            
+            // Update in mockTransactionItems array as well
+            const mockItemIndex = mockTransactionItems.findIndex(i => i.id === item.transactionItemId)
+            if (mockItemIndex !== -1) {
+              mockTransactionItems[mockItemIndex] = transaction.items[txItemIndex]
+            }
+          }
+        }
+      }
+    }
+    
+    // Update transaction delivery status
+    if (transactionIndex !== -1) {
+      const transaction = mockTransactions[transactionIndex]
+      const allFulfilled = transaction.items?.every(i => i.fulfillmentStatus === 'FULFILLED')
+      const someFulfilled = transaction.items?.some(i => i.fulfillmentStatus === 'FULFILLED' || i.fulfillmentStatus === 'PARTIAL')
+      
+      if (allFulfilled) {
+        mockTransactions[transactionIndex].deliveryStatus = 'DELIVERED'
+      } else if (someFulfilled) {
+        mockTransactions[transactionIndex].deliveryStatus = 'PARTIAL'
+      } else {
+        mockTransactions[transactionIndex].deliveryStatus = 'PROCESSING'
+      }
+    }
+    
+    return {
+      success: true,
+      data: newDelivery
+    }
+  },
+  
+  updateStatus: async (id: string, status: string, receiverName?: string): Promise<ApiResponse> => {
     await mockApiDelay(MOCK_DELAY)
     
     const index = mockDeliveries.findIndex(d => d.id === id)
@@ -1157,6 +1285,9 @@ export const mockDeliveriesApi = {
     
     if (status === 'DELIVERED') {
       mockDeliveries[index].deliveryTime = new Date().toISOString()
+      if (receiverName) {
+        mockDeliveries[index].receiverName = receiverName
+      }
     }
     
     return {
