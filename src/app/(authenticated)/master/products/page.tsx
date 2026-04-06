@@ -59,13 +59,62 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
     description: product?.description || '',
   })
 
-  // Auto-calculate basePricePerUnit from baseUnitWeight × basePricePerKg
-  React.useEffect(() => {
-    const pricePerUnit = formData.baseUnitWeight * formData.basePricePerKg
-    if (pricePerUnit !== formData.basePricePerUnit) {
-      setFormData(prev => ({ ...prev, basePricePerUnit: pricePerUnit }))
+  // Handler untuk perhitungan otomatis yang fleksibel
+  // User bebas memilih field mana yang diinput, field lain dihitung otomatis
+  const handleUnitWeightChange = (value: number) => {
+    // Price per Unit = Weight × Price per Kg
+    const pricePerUnit = value * formData.basePricePerKg
+    setFormData(prev => ({ 
+      ...prev, 
+      baseUnitWeight: value,
+      basePricePerUnit: pricePerUnit 
+    }))
+  }
+
+  const handlePricePerKgChange = (value: number) => {
+    // Jika Price per Unit sudah ada → Weight = Price per Unit / Price per Kg
+    // Jika Weight sudah ada → Price per Unit = Weight × Price per Kg
+    if (formData.basePricePerUnit > 0 && value > 0) {
+      const weight = formData.basePricePerUnit / value
+      setFormData(prev => ({ 
+        ...prev, 
+        basePricePerKg: value,
+        baseUnitWeight: weight 
+      }))
+    } else {
+      const pricePerUnit = formData.baseUnitWeight * value
+      setFormData(prev => ({ 
+        ...prev, 
+        basePricePerKg: value,
+        basePricePerUnit: pricePerUnit 
+      }))
     }
-  }, [formData.baseUnitWeight, formData.basePricePerKg])
+  }
+
+  const handlePricePerUnitChange = (value: number) => {
+    // Jika Weight sudah ada → Price per Kg = Price per Unit / Weight
+    // Jika Price per Kg sudah ada → Weight = Price per Unit / Price per Kg
+    if (formData.baseUnitWeight > 0) {
+      const pricePerKg = value / formData.baseUnitWeight
+      setFormData(prev => ({ 
+        ...prev, 
+        basePricePerUnit: value,
+        basePricePerKg: pricePerKg 
+      }))
+    } else if (formData.basePricePerKg > 0) {
+      const weight = value / formData.basePricePerKg
+      setFormData(prev => ({ 
+        ...prev, 
+        basePricePerUnit: value,
+        baseUnitWeight: weight 
+      }))
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        basePricePerUnit: value 
+      }))
+    }
+  }
 
   // Auto-calculate kg stock from unit weight and unit qty
   React.useEffect(() => {
@@ -139,7 +188,7 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
       {/* Unit Info */}
       <div className="border-b pb-4 mb-4">
         <h4 className="font-medium mb-3">Unit Information</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Unit Name *</label>
             <select
@@ -162,42 +211,50 @@ function ProductForm({ product, onSubmit, onCancel, loading, categories, units }
               placeholder="e.g., Kg, Kilogram"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Unit Weight (Kg) *</label>
-            <NumberInput
-              value={formData.baseUnitWeight}
-              onChange={(value) => setFormData({ ...formData, baseUnitWeight: value })}
-              placeholder="Weight per unit in Kg"
-              allowDecimal
-              required
-            />
-          </div>
         </div>
       </div>
 
       {/* Pricing */}
       <div className="border-b pb-4 mb-4">
         <h4 className="font-medium mb-3">Pricing</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg mb-4">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            💡 <strong>Tips:</strong> Isi salah satu field dan field lainnya akan dihitung otomatis.
+            <br />• Weight × Price/Kg = Price/Unit
+            <br />• Price/Unit ÷ Weight = Price/Kg
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Base Price per Kg (Rp) *</label>
+            <label className="text-sm font-medium">Unit Weight (Kg)</label>
             <NumberInput
-              value={formData.basePricePerKg}
-              onChange={(value) => setFormData({ ...formData, basePricePerKg: value })}
-              placeholder="Price per Kg"
-              required
+              value={formData.baseUnitWeight}
+              onChange={handleUnitWeightChange}
+              placeholder="Weight per unit"
+              allowDecimal
             />
+            <p className="text-xs text-muted-foreground">= Price/Unit ÷ Price/Kg</p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Base Price per Unit (Rp)</label>
+            <label className="text-sm font-medium">Price per Kg (Rp)</label>
+            <NumberInput
+              value={formData.basePricePerKg}
+              onChange={handlePricePerKgChange}
+              placeholder="Price per Kg"
+              allowDecimal
+            />
+            <p className="text-xs text-muted-foreground">= Price/Unit ÷ Weight</p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Price per Unit (Rp) *</label>
             <NumberInput
               value={formData.basePricePerUnit}
-              onChange={() => {}}
-              className="bg-muted"
-              disabled
-              placeholder="Auto-calculated"
+              onChange={handlePricePerUnitChange}
+              placeholder="Price per unit"
+              allowDecimal
+              required
             />
-            <p className="text-xs text-muted-foreground">Auto-calculated: Unit Weight × Price/Kg</p>
+            <p className="text-xs text-muted-foreground">= Weight × Price/Kg</p>
           </div>
         </div>
         <div className="flex items-center space-x-2 mt-4">
