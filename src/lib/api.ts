@@ -327,6 +327,8 @@ async function mockApiCall<T = unknown>(options: ApiRequestOptions): Promise<Api
       return mockApi.auth.logout() as Promise<ApiResponse<T>>
     case 'auth.refreshToken':
       return mockApi.auth.refreshToken() as Promise<ApiResponse<T>>
+    case 'auth.changePassword':
+      return mockApi.auth.changePassword(data as { currentPassword: string; newPassword: string }) as Promise<ApiResponse<T>>
     
     // Users
     case 'users.list':

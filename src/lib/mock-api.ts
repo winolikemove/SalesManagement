@@ -57,6 +57,9 @@ export const mockAuthApi = {
     const token = generateMockToken()
     const refreshToken = generateMockToken()
     
+    // Update last login
+    user.lastLogin = new Date().toISOString()
+    
     return {
       success: true,
       data: {
@@ -81,6 +84,35 @@ export const mockAuthApi = {
       success: true,
       data: { token: generateMockToken() },
       token: generateMockToken()
+    }
+  },
+  
+  changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<ApiResponse> => {
+    await mockApiDelay(MOCK_DELAY)
+    
+    // For mock, we don't validate current password
+    // In real app, this would validate against stored password
+    
+    if (!data.currentPassword) {
+      return {
+        success: false,
+        error: 'Password saat ini wajib diisi',
+        code: 'CURRENT_PASSWORD_REQUIRED'
+      }
+    }
+    
+    if (!data.newPassword || data.newPassword.length < 6) {
+      return {
+        success: false,
+        error: 'Password baru minimal 6 karakter',
+        code: 'INVALID_NEW_PASSWORD'
+      }
+    }
+    
+    // In real app, this would update the password in the database
+    return {
+      success: true,
+      message: 'Password berhasil diubah'
     }
   }
 }
