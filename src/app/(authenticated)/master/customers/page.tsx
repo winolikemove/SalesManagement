@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
-import { formatDateTime, formatCurrency, parseNumberInput } from '@/lib/utils'
+import { formatDateTime, formatCurrency } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 import { usePageHeader } from '@/stores/app-store'
 import type { Customer } from '@/types'
 
@@ -206,25 +207,17 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Credit Limit</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.creditLimit}
-              onChange={(e) => setFormData({ ...formData, creditLimit: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, creditLimit: parseNumberInput(e.target.value) })}
-              min={0}
+              onChange={(value) => setFormData({ ...formData, creditLimit: value })}
               placeholder="0"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Payment Terms (days)</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.paymentTerms}
-              onChange={(e) => setFormData({ ...formData, paymentTerms: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, paymentTerms: parseNumberInput(e.target.value) })}
-              min={0}
+              onChange={(value) => setFormData({ ...formData, paymentTerms: value })}
               placeholder="30"
             />
           </div>

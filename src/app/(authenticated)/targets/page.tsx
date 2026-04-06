@@ -10,7 +10,8 @@ import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen, StatsCard } from '@/components/shared'
-import { formatCurrency, formatPercentage, parseNumberInput } from '@/lib/utils'
+import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 import { TARGET_TYPE_LABELS, TARGET_PERIOD_LABELS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import type { Target } from '@/types'
@@ -103,14 +104,10 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Year *</label>
-          <input
-            type="number"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          <NumberInput
             value={formData.year}
-            onChange={(e) => setFormData({ ...formData, year: parseNumberInput(e.target.value) })}
-            onBlur={(e) => setFormData({ ...formData, year: parseNumberInput(e.target.value) })}
-            min={2020}
-            max={2030}
+            onChange={(value) => setFormData({ ...formData, year: value })}
+            placeholder="2024"
             required
           />
         </div>
@@ -150,13 +147,10 @@ function TargetForm({ target, onSubmit, onCancel, loading }: {
         <label className="text-sm font-medium">
           Target Amount {formData.type === 'revenue' ? '(Rp)' : '(Units)'} *
         </label>
-        <input
-          type="number"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        <NumberInput
           value={formData.targetAmount}
-          onChange={(e) => setFormData({ ...formData, targetAmount: parseNumberInput(e.target.value) })}
-          onBlur={(e) => setFormData({ ...formData, targetAmount: parseNumberInput(e.target.value) })}
-          min={0}
+          onChange={(value) => setFormData({ ...formData, targetAmount: value })}
+          placeholder="Enter target amount"
           required
         />
       </div>

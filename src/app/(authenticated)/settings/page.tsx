@@ -28,7 +28,7 @@ import { useIsAdmin } from '@/stores/auth-store'
 import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS } from '@/lib/constants'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
-import { parseNumberInput } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 
 // ============ Mock Config Data ============
 const mockConfig = {
@@ -231,13 +231,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Tax Rate (%)</Label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={config.taxRate}
-                    onChange={(e) => setConfig({ ...config, taxRate: parseNumberInput(e.target.value) })}
-                    onBlur={(e) => setConfig({ ...config, taxRate: parseNumberInput(e.target.value) })}
-                    min={0}
-                    max={100}
+                    onChange={(value) => setConfig({ ...config, taxRate: value })}
+                    placeholder="10"
                   />
                 </div>
               </div>
@@ -263,12 +260,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Starting Number</Label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={config.invoiceStartingNumber}
-                    onChange={(e) => setConfig({ ...config, invoiceStartingNumber: parseNumberInput(e.target.value) })}
-                    onBlur={(e) => setConfig({ ...config, invoiceStartingNumber: parseNumberInput(e.target.value) })}
-                    min={1}
+                    onChange={(value) => setConfig({ ...config, invoiceStartingNumber: value })}
+                    placeholder="1"
                   />
                 </div>
               </div>
@@ -292,12 +287,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Starting Number</Label>
-                  <Input
-                    type="number"
+                  <NumberInput
                     value={config.deliveryNoteStartingNumber}
-                    onChange={(e) => setConfig({ ...config, deliveryNoteStartingNumber: parseNumberInput(e.target.value) })}
-                    onBlur={(e) => setConfig({ ...config, deliveryNoteStartingNumber: parseNumberInput(e.target.value) })}
-                    min={1}
+                    onChange={(value) => setConfig({ ...config, deliveryNoteStartingNumber: value })}
+                    placeholder="1"
                   />
                 </div>
               </div>

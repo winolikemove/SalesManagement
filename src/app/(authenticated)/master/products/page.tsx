@@ -6,10 +6,11 @@ import { ColumnDef } from '@tanstack/react-table'
 import { Plus, Pencil, Trash2, Package, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { NumberInput } from '@/components/ui/number-input'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
-import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
+import { formatDateTime, formatCurrency, cn } from '@/lib/utils'
 import { DEFAULT_CATEGORIES, DEFAULT_UNITS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import type { Product } from '@/types'
@@ -152,16 +153,12 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Unit Weight (Kg) *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.baseUnitWeight}
-              onChange={(e) => setFormData({ ...formData, baseUnitWeight: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, baseUnitWeight: parseNumberInput(e.target.value) })}
-              min={0}
-              step={0.01}
-              required
+              onChange={(value) => setFormData({ ...formData, baseUnitWeight: value })}
               placeholder="Weight per unit in Kg"
+              allowDecimal
+              required
             />
           </div>
         </div>
@@ -173,28 +170,20 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Base Price per Kg (Rp) *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.basePricePerKg}
-              onChange={(e) => setFormData({ ...formData, basePricePerKg: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, basePricePerKg: parseNumberInput(e.target.value) })}
-              min={0}
-              required
+              onChange={(value) => setFormData({ ...formData, basePricePerKg: value })}
               placeholder="Price per Kg"
+              required
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Base Price per Unit (Rp) *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.basePricePerUnit}
-              onChange={(e) => setFormData({ ...formData, basePricePerUnit: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, basePricePerUnit: parseNumberInput(e.target.value) })}
-              min={0}
-              required
+              onChange={(value) => setFormData({ ...formData, basePricePerUnit: value })}
               placeholder="Price per unit"
+              required
             />
           </div>
         </div>
@@ -216,39 +205,31 @@ function ProductForm({ product, onSubmit, onCancel, loading }: {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock (Unit) *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.stockQtyUnit}
-              onChange={(e) => setFormData({ ...formData, stockQtyUnit: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, stockQtyUnit: parseNumberInput(e.target.value) })}
-              min={0}
-              required
+              onChange={(value) => setFormData({ ...formData, stockQtyUnit: value })}
               placeholder="Quantity in units"
+              required
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Stock (Kg)</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm bg-muted"
+            <NumberInput
               value={formData.stockQtyKg}
-              readOnly
+              onChange={() => {}}
+              className="bg-muted"
+              disabled
               placeholder="Auto-calculated"
             />
             <p className="text-xs text-muted-foreground">Auto-calculated from unit × weight</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Min Stock *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.minStock}
-              onChange={(e) => setFormData({ ...formData, minStock: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, minStock: parseNumberInput(e.target.value) })}
-              min={0}
-              required
+              onChange={(value) => setFormData({ ...formData, minStock: value })}
               placeholder="Minimum stock alert"
+              required
             />
           </div>
         </div>

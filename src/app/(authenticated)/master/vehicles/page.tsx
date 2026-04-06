@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
-import { formatDateTime, formatDate, parseNumberInput } from '@/lib/utils'
+import { formatDateTime, formatDate } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 import { usePageHeader } from '@/stores/app-store'
 import type { Vehicle } from '@/types'
 
@@ -113,15 +114,11 @@ function VehicleForm({ vehicle, onSubmit, onCancel, loading }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Max Capacity (Kg) *</label>
-            <input
-              type="number"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <NumberInput
               value={formData.maxCapacityKg}
-              onChange={(e) => setFormData({ ...formData, maxCapacityKg: parseNumberInput(e.target.value) })}
-              onBlur={(e) => setFormData({ ...formData, maxCapacityKg: parseNumberInput(e.target.value) })}
-              min={0}
-              required
+              onChange={(value) => setFormData({ ...formData, maxCapacityKg: value })}
               placeholder="Maximum capacity in Kg"
+              required
             />
           </div>
         </div>

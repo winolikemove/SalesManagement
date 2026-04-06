@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
-import { formatCurrency, parseNumberInput } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 import { usePageHeader } from '@/stores/app-store'
 import type { CustomerPrice, Customer, Product } from '@/types'
 
@@ -102,13 +103,10 @@ function CustomerPriceForm({ price, customers, products, onSubmit, onCancel, loa
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Special Price (Rp) *</label>
-        <input
-          type="number"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        <NumberInput
           value={formData.specialPrice}
-          onChange={(e) => setFormData({ ...formData, specialPrice: parseNumberInput(e.target.value) })}
-          onBlur={(e) => setFormData({ ...formData, specialPrice: parseNumberInput(e.target.value) })}
-          min={0}
+          onChange={(value) => setFormData({ ...formData, specialPrice: value })}
+          placeholder="Enter price"
           required
         />
         {selectedProduct && formData.specialPrice > 0 && (
