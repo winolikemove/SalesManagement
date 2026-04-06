@@ -21,6 +21,7 @@ import type { Transaction, TransactionItem, Customer, Product, CustomerPrice } f
 
 // ============ Extended Transaction Item for Table Display ============
 interface TransactionItemDisplay extends TransactionItem {
+  invoiceNumber: string
   invoiceDate: string
   customerCode: string
   customerName: string
@@ -967,13 +968,14 @@ export default function TransactionsPage() {
         tx.items.forEach(item => {
           items.push({
             ...item,
-            invoiceDate: tx.invoiceDate,
-            customerCode: tx.customerCode,
-            customerName: tx.customerName,
-            salesName: tx.salesName,
-            paymentStatus: tx.paymentStatus,
-            deliveryStatus: tx.deliveryStatus,
-            transactionId: tx.id,
+            invoiceNumber: tx.invoiceNumber || '',
+            invoiceDate: tx.invoiceDate || '',
+            customerCode: tx.customerCode || '',
+            customerName: tx.customerName || '',
+            salesName: tx.salesName || '',
+            paymentStatus: tx.paymentStatus || '',
+            deliveryStatus: tx.deliveryStatus || '',
+            transactionId: tx.id || '',
           })
         })
       }
@@ -988,13 +990,13 @@ export default function TransactionsPage() {
     const search = globalSearch.toLowerCase()
     return transactionItems.filter(item => {
       return (
-        item.invoiceNumber.toLowerCase().includes(search) ||
-        item.productCode.toLowerCase().includes(search) ||
-        item.productName.toLowerCase().includes(search) ||
-        item.customerName.toLowerCase().includes(search) ||
-        item.customerCode.toLowerCase().includes(search) ||
-        item.salesName.toLowerCase().includes(search) ||
-        item.unitName.toLowerCase().includes(search)
+        (item.invoiceNumber || '').toLowerCase().includes(search) ||
+        (item.productCode || '').toLowerCase().includes(search) ||
+        (item.productName || '').toLowerCase().includes(search) ||
+        (item.customerName || '').toLowerCase().includes(search) ||
+        (item.customerCode || '').toLowerCase().includes(search) ||
+        (item.salesName || '').toLowerCase().includes(search) ||
+        (item.unitName || '').toLowerCase().includes(search)
       )
     })
   }, [transactionItems, globalSearch])
