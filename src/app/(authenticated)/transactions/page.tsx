@@ -2,8 +2,8 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ColumnDef, ColumnFiltersState, SortingState } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Filter } from 'lucide-react'
+import { ColumnDef, ColumnFiltersState, SortingState, getFilteredRowModel } from '@tanstack/react-table'
+import { Plus, Pencil, Trash2, Eye, Printer, CreditCard, Package, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,124 +11,143 @@ import { Separator } from '@/components/ui/separator'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { formatDateTime, formatCurrency, cn, parseNumberInput } from '@/lib/utils'
-import { NumberInput } from '@/components/ui/number-input'
+import { Input } from '@/components/ui/input'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, DEFAULT_PAYMENT_METHODS, FULFILLMENT_STATUS_LABELS, FULFILLMENT_STATUS_COLORS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import { useSalesNames, usePaymentMethods, useTaxRate, useProductCategories } from '@/hooks/use-settings'
 import { api } from '@/lib/api'
 import type { Transaction, TransactionItem, Customer, Product } from '@/types'
 
-// ============ Transaction Item Row ============
-interface TransactionItemRowProps {
-  item: TransactionItemFormData
-  products: Product[]
-  customerId: string | null
-  onChange: (item: TransactionItemFormData) => void
-  onRemove: () => void
+// ============ Extended Transaction Item for Table Display ============
+interface TransactionItemDisplay extends TransactionItem {
+  invoiceDate: string
+  customerCode: string
+  customerName: string
+  salesName: string
+  paymentStatus: string
+  deliveryStatus: string
+  transactionId: string
 }
 
-function TransactionItemRow({ item, products, customerId, onChange, onRemove }: TransactionItemRowProps) {
-  const selectedProduct = products.find(p => p.id === item.productId)
+// ============ Auto-Complete Input Component ============
+interface AutoCompleteInputProps<T> {
+  items: T[]
+  value: string
+  onChange: (value: string, selectedItem?: T) => void
+  displayKey: keyof T
+  valueKey: keyof T
+  placeholder?: string
+  renderItem?: (item: T) => React.ReactNode
+  onClear?: () => void
+}
 
-  // Fetch customer-specific price when product or customer changes
-  const { data: customerPrice } = useQuery({
-    queryKey: ['productCustomerPrice', item.productId, customerId],
-    queryFn: async () => {
-      if (!item.productId || !customerId) return null
-      const response = await api.getProductCustomerPrice(item.productId, customerId)
-      if (response.success && response.data) {
-        return response.data as {
-          pricePerKg: number
-          pricePerUnit: number
-          isPPN: boolean
-          discountPercent: number
-          isSpecialPrice: boolean
-        }
-      }
-      return null
-    },
-    enabled: !!item.productId && !!customerId,
-  })
+function AutoCompleteInput<T extends { id: string }>({
+  items,
+  value,
+  onChange,
+  displayKey,
+  valueKey,
+  placeholder = 'Type to search...',
+  renderItem,
+  onClear,
+}: AutoCompleteInputProps<T>) {
+  const [inputValue, setInputValue] = React.useState('')
+  const [showSuggestions, setShowSuggestions] = React.useState(false)
+  const [filteredItems, setFilteredItems] = React.useState<T[]>([])
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const suggestionsRef = React.useRef<HTMLDivElement>(null)
 
-  // Update price when customer price data changes
+  // Filter items based on input
   React.useEffect(() => {
-    if (customerPrice && item.productId && customerId) {
-      onChange({
-        ...item,
-        unitPrice: customerPrice.pricePerUnit,
+    if (inputValue.trim() === '') {
+      setFilteredItems(items.slice(0, 10)) // Show first 10 items when empty
+    } else {
+      const filtered = items.filter(item => {
+        const displayValue = String(item[displayKey]).toLowerCase()
+        const codeValue = String(item[valueKey]).toLowerCase()
+        const search = inputValue.toLowerCase()
+        return displayValue.includes(search) || codeValue.includes(search)
       })
+      setFilteredItems(filtered.slice(0, 20)) // Limit to 20 results
     }
-  }, [customerPrice, item.productId, customerId])
+  }, [inputValue, items, displayKey, valueKey])
+
+  // Handle click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
+    setShowSuggestions(true)
+  }
+
+  const handleSelectItem = (item: T) => {
+    const displayValue = String(item[displayKey])
+    setInputValue(displayValue)
+    setShowSuggestions(false)
+    onChange(String(item[valueKey]), item)
+  }
+
+  const handleClear = () => {
+    setInputValue('')
+    setShowSuggestions(false)
+    onClear?.()
+    onChange('')
+  }
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-end">
-      <div className="col-span-4">
-        <label className="text-xs text-muted-foreground">Product</label>
-        <select
-          className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-          value={item.productId}
-          onChange={(e) => {
-            const product = products.find(p => p.id === e.target.value)
-            onChange({
-              ...item,
-              productId: e.target.value,
-              unitPrice: product?.basePricePerUnit || 0,
-            })
+    <div className="relative">
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => {
+            setShowSuggestions(true)
+            setInputValue('') // Clear to show suggestions
           }}
+          placeholder={placeholder}
+          className="pr-8"
+        />
+        {inputValue && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {showSuggestions && filteredItems.length > 0 && (
+        <div
+          ref={suggestionsRef}
+          className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto"
         >
-          <option value="">Select</option>
-          {products.filter(p => p.isActive && p.stockQtyUnit > 0).map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.productCode} - {product.productName} (Stock: {product.stockQtyUnit} {product.unitName})
-            </option>
+          {filteredItems.map((item) => (
+            <div
+              key={item.id}
+              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+              onClick={() => handleSelectItem(item)}
+            >
+              {renderItem ? renderItem(item) : String(item[displayKey])}
+            </div>
           ))}
-        </select>
-      </div>
-      <div className="col-span-2">
-        <label className="text-xs text-muted-foreground">Price</label>
-        <input
-          type="number"
-          className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-          value={item.unitPrice}
-          onChange={(e) => onChange({ ...item, unitPrice: parseNumberInput(e.target.value) })}
-          onBlur={(e) => onChange({ ...item, unitPrice: parseNumberInput(e.target.value) })}
-          min={0}
-        />
-      </div>
-      <div className="col-span-2">
-        <label className="text-xs text-muted-foreground">Qty</label>
-        <input
-          type="number"
-          className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-          value={item.quantity}
-          onChange={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
-          onBlur={(e) => onChange({ ...item, quantity: parseNumberInput(e.target.value) })}
-          min={1}
-          max={selectedProduct?.stockQtyUnit || 999}
-        />
-      </div>
-      <div className="col-span-2">
-        <label className="text-xs text-muted-foreground">Discount</label>
-        <input
-          type="number"
-          className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-          value={item.discount}
-          onChange={(e) => onChange({ ...item, discount: parseNumberInput(e.target.value) })}
-          onBlur={(e) => onChange({ ...item, discount: parseNumberInput(e.target.value) })}
-          min={0}
-        />
-      </div>
-      <div className="col-span-1">
-        <label className="text-xs text-muted-foreground">Total</label>
-        <div className="flex h-9 items-center text-sm font-medium">
-          {formatCurrency(item.quantity * item.unitPrice - item.discount)}
         </div>
-      </div>
-      <div className="col-span-1">
-        <Button variant="ghost" size="sm" onClick={onRemove} type="button">
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </div>
+      )}
     </div>
   )
 }
@@ -136,20 +155,28 @@ function TransactionItemRow({ item, products, customerId, onChange, onRemove }: 
 // ============ Transaction Form Component ============
 interface TransactionItemFormData {
   productId: string
+  productCode: string
+  productName: string
   quantity: number
   unitPrice: number
+  pricePerKg: number
+  unitName: string
+  kgName: string
   discount: number
 }
 
 interface TransactionFormData {
   customerId: string
+  customerCode: string
+  customerName: string
+  customerAddress: string
+  customerPhone: string
   salesName: string
   items: TransactionItemFormData[]
   discount: number
   paymentMethod: string
   paidAmount: number
   notes: string
-  deliveryStatus: string
 }
 
 function TransactionForm({ transaction, customers, products, salesNames, paymentMethods, taxRateSetting, onSubmit, onCancel, loading }: {
@@ -163,74 +190,188 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
   onCancel: () => void
   loading?: boolean
 }) {
-  const [formData, setFormData] = React.useState<TransactionFormData>({
-    customerId: transaction?.customerId || '',
-    salesName: transaction?.salesName || salesNames[0] || '',
-    items: transaction?.items?.map(i => ({ productId: i.productId, quantity: i.qtyOrderUnit, unitPrice: i.pricePerUnit, discount: 0 })) || [{ productId: '', quantity: 1, unitPrice: 0, discount: 0 }],
-    discount: transaction?.discountAmount || 0,
-    paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
-    paidAmount: transaction?.paidAmount || 0,
-    notes: transaction?.notes || '',
-    deliveryStatus: transaction?.deliveryStatus || 'PENDING',
+  const [formData, setFormData] = React.useState<TransactionFormData>(() => {
+    if (transaction) {
+      return {
+        customerId: transaction.customerId,
+        customerCode: transaction.customerCode,
+        customerName: transaction.customerName,
+        customerAddress: transaction.customerAddress,
+        customerPhone: transaction.customerPhone,
+        salesName: transaction.salesName,
+        items: transaction.items?.map(i => ({
+          productId: i.productId,
+          productCode: i.productCode,
+          productName: i.productName,
+          quantity: i.qtyOrderUnit,
+          unitPrice: i.pricePerUnit,
+          pricePerKg: i.pricePerKg,
+          unitName: i.unitName,
+          kgName: i.kgName,
+          discount: 0,
+        })) || [],
+        discount: transaction.discountAmount,
+        paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
+        paidAmount: transaction.paidAmount,
+        notes: transaction.notes,
+      }
+    }
+    return {
+      customerId: '',
+      customerCode: '',
+      customerName: '',
+      customerAddress: '',
+      customerPhone: '',
+      salesName: salesNames[0] || '',
+      items: [],
+      discount: 0,
+      paymentMethod: paymentMethods[0] || DEFAULT_PAYMENT_METHODS[0],
+      paidAmount: 0,
+      notes: '',
+    }
   })
 
-  const taxRate = taxRateSetting / 100 // Convert percentage to decimal
-
+  const taxRate = taxRateSetting / 100
   const subtotal = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice - item.discount), 0)
   const taxAmount = subtotal * taxRate
   const total = subtotal + taxAmount - formData.discount
   const remainingAmount = total - formData.paidAmount
+
+  // Handle customer selection with auto-fill
+  const handleCustomerSelect = (value: string, customer?: Customer) => {
+    if (customer) {
+      setFormData(prev => ({
+        ...prev,
+        customerId: customer.id,
+        customerCode: customer.customerCode,
+        customerName: customer.customerName,
+        customerAddress: customer.address,
+        customerPhone: customer.picPhone,
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        customerId: '',
+        customerCode: '',
+        customerName: '',
+        customerAddress: '',
+        customerPhone: '',
+      }))
+    }
+  }
+
+  // Handle product selection with auto-fill
+  const handleProductSelect = (index: number, value: string, product?: Product) => {
+    if (product) {
+      const newItems = [...formData.items]
+      newItems[index] = {
+        ...newItems[index],
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.productName,
+        unitPrice: product.basePricePerUnit,
+        pricePerKg: product.basePricePerKg,
+        unitName: product.unitName,
+        kgName: product.kgName,
+      }
+      setFormData(prev => ({ ...prev, items: newItems }))
+    }
+  }
+
+  // Add new item
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        productId: '',
+        productCode: '',
+        productName: '',
+        quantity: 1,
+        unitPrice: 0,
+        pricePerKg: 0,
+        unitName: '',
+        kgName: '',
+        discount: 0,
+      }]
+    }))
+  }
+
+  // Remove item
+  const removeItem = (index: number) => {
+    if (formData.items.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index)
+      }))
+    }
+  }
+
+  // Update item field
+  const updateItem = (index: number, field: keyof TransactionItemFormData, value: number | string) => {
+    const newItems = [...formData.items]
+    newItems[index] = { ...newItems[index], [field]: value }
+    setFormData(prev => ({ ...prev, items: newItems }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(formData)
   }
 
-  const addItem = () => {
-    setFormData({ ...formData, items: [...formData.items, { productId: '', quantity: 1, unitPrice: 0, discount: 0 }] })
-  }
-
-  const updateItem = (index: number, item: TransactionItemFormData) => {
-    const newItems = [...formData.items]
-    newItems[index] = item
-    setFormData({ ...formData, items: newItems })
-  }
-
-  const removeItem = (index: number) => {
-    if (formData.items.length > 1) {
-      setFormData({ ...formData, items: formData.items.filter((_, i) => i !== index) })
-    }
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Customer *</label>
-          <select
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      {/* Customer Selection with Auto-complete */}
+      <div className="space-y-3">
+        <div>
+          <label className="text-sm font-medium mb-1 block">Customer *</label>
+          <AutoCompleteInput<Customer>
+            items={customers.filter(c => c.isActive)}
             value={formData.customerId}
-            onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-            required
-          >
-            <option value="">Select Customer</option>
-            {customers.filter(c => c.isActive).map((customer) => (
-              <option key={customer.id} value={customer.id}>{customer.customerName}</option>
-            ))}
-          </select>
+            onChange={handleCustomerSelect}
+            displayKey="customerName"
+            valueKey="id"
+            placeholder="Ketik nama customer..."
+            renderItem={(customer) => (
+              <div>
+                <span className="font-medium">{customer.customerName}</span>
+                <span className="text-muted-foreground ml-2">({customer.customerCode})</span>
+                <span className="text-muted-foreground ml-2 text-xs">{customer.city}</span>
+              </div>
+            )}
+          />
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Sales Name</label>
-          <select
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.salesName}
-            onChange={(e) => setFormData({ ...formData, salesName: e.target.value })}
-          >
-            {salesNames.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </div>
+
+        {/* Auto-filled Customer Details */}
+        {formData.customerId && (
+          <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg text-sm">
+            <div>
+              <span className="text-muted-foreground">Kode:</span>
+              <span className="ml-2 font-medium">{formData.customerCode}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Telepon:</span>
+              <span className="ml-2">{formData.customerPhone}</span>
+            </div>
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Alamat:</span>
+              <span className="ml-2">{formData.customerAddress}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sales Name */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Sales Name</label>
+        <select
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.salesName}
+          onChange={(e) => setFormData({ ...formData, salesName: e.target.value })}
+        >
+          {salesNames.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Items */}
@@ -238,20 +379,110 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Items</label>
           <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            <Plus className="h-4 w-4 mr-1" /> Add Item
+            <Plus className="h-4 w-4 mr-1" /> Tambah Barang
           </Button>
         </div>
-        <div className="space-y-2">
+
+        <div className="space-y-3">
           {formData.items.map((item, index) => (
-            <TransactionItemRow
-              key={index}
-              item={item}
-              products={products}
-              customerId={formData.customerId || null}
-              onChange={(updated) => updateItem(index, updated)}
-              onRemove={() => removeItem(index)}
-            />
+            <div key={index} className="border rounded-lg p-3 space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs text-muted-foreground">Item {index + 1}</span>
+                {formData.items.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeItem(index)}
+                    className="h-6 px-2 text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Product Selection */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Nama Barang *</label>
+                <AutoCompleteInput<Product>
+                  items={products.filter(p => p.isActive && p.stockQtyUnit > 0)}
+                  value={item.productId}
+                  onChange={(value, product) => handleProductSelect(index, value, product)}
+                  displayKey="productName"
+                  valueKey="id"
+                  placeholder="Ketik nama barang..."
+                  renderItem={(product) => (
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">{product.productName}</span>
+                        <span className="text-muted-foreground ml-2">({product.productCode})</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Stok: {product.stockQtyUnit} {product.unitName}
+                      </span>
+                    </div>
+                  )}
+                />
+              </div>
+
+              {/* Auto-filled Product Details */}
+              {item.productId && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-muted/30 p-2 rounded">
+                    <span className="text-muted-foreground block">Kode</span>
+                    <span className="font-medium">{item.productCode}</span>
+                  </div>
+                  <div className="bg-muted/30 p-2 rounded">
+                    <span className="text-muted-foreground block">Harga/Unit</span>
+                    <span className="font-medium">{formatCurrency(item.unitPrice)}</span>
+                  </div>
+                  <div className="bg-muted/30 p-2 rounded">
+                    <span className="text-muted-foreground block">Harga/Kg</span>
+                    <span className="font-medium">{formatCurrency(item.pricePerKg)}</span>
+                  </div>
+                  <div className="bg-muted/30 p-2 rounded">
+                    <span className="text-muted-foreground block">Satuan</span>
+                    <span className="font-medium">{item.unitName} / {item.kgName}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Quantity and Discount */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Qty *</label>
+                  <Input
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(index, 'quantity', parseNumberInput(e.target.value))}
+                    min={1}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Diskon</label>
+                  <Input
+                    type="number"
+                    value={item.discount}
+                    onChange={(e) => updateItem(index, 'discount', parseNumberInput(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Subtotal</label>
+                  <div className="h-10 flex items-center font-medium bg-muted/30 rounded-md px-3">
+                    {formatCurrency(item.quantity * item.unitPrice - item.discount)}
+                  </div>
+                </div>
+              </div>
+            </div>
           ))}
+
+          {formData.items.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+              Belum ada barang. Klik "Tambah Barang" untuk menambahkan.
+            </div>
+          )}
         </div>
       </div>
 
@@ -266,18 +497,17 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
           <span>{formatCurrency(taxAmount)}</span>
         </div>
         <div className="flex justify-between text-sm items-center">
-          <span>Discount</span>
-          <input
+          <span>Diskon</span>
+          <Input
             type="number"
-            className="flex h-8 w-32 rounded-md border border-input bg-background px-2 py-1 text-sm text-right"
+            className="w-32 h-8 text-right"
             value={formData.discount}
             onChange={(e) => setFormData({ ...formData, discount: parseNumberInput(e.target.value) })}
-            onBlur={(e) => setFormData({ ...formData, discount: parseNumberInput(e.target.value) })}
             min={0}
           />
         </div>
         <Separator />
-        <div className="flex justify-between font-bold">
+        <div className="flex justify-between font-bold text-lg">
           <span>Total</span>
           <span>{formatCurrency(total)}</span>
         </div>
@@ -286,7 +516,7 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
       {/* Payment */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Payment Method</label>
+          <label className="text-sm font-medium">Metode Pembayaran</label>
           <select
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.paymentMethod}
@@ -298,40 +528,40 @@ function TransactionForm({ transaction, customers, products, salesNames, payment
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Paid Amount</label>
-          <input
+          <label className="text-sm font-medium">Jumlah Bayar</label>
+          <Input
             type="number"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.paidAmount}
             onChange={(e) => setFormData({ ...formData, paidAmount: parseNumberInput(e.target.value) })}
-            onBlur={(e) => setFormData({ ...formData, paidAmount: parseNumberInput(e.target.value) })}
             min={0}
             max={total}
           />
         </div>
       </div>
 
-      <div className="flex justify-between text-sm">
-        <span>Remaining Amount</span>
-        <span className={remainingAmount > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+      <div className="flex justify-between text-sm p-2 rounded bg-muted/30">
+        <span>Sisa Pembayaran</span>
+        <span className={remainingAmount > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
           {formatCurrency(remainingAmount)}
         </span>
       </div>
 
+      {/* Notes */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Notes</label>
+        <label className="text-sm font-medium">Catatan</label>
         <textarea
           className="flex h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          placeholder="Enter notes..."
+          placeholder="Catatan transaksi..."
         />
       </div>
 
+      {/* Actions */}
       <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Saving...' : transaction ? 'Update' : 'Create'}
+        <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
+        <Button type="submit" disabled={loading || formData.items.length === 0 || !formData.customerId}>
+          {loading ? 'Menyimpan...' : transaction ? 'Update' : 'Simpan'}
         </Button>
       </div>
     </form>
@@ -381,9 +611,8 @@ function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, lo
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Additional Payment</label>
-        <input
+        <Input
           type="number"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           placeholder="Enter amount"
           value={formData.amount}
           onChange={(e) => setFormData({ ...formData, amount: parseNumberInput(e.target.value) })}
@@ -394,7 +623,7 @@ function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, lo
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Payment Method</label>
-        <select 
+        <select
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.paymentMethod}
           onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
@@ -423,322 +652,56 @@ function PaymentUpdateForm({ transaction, paymentMethods, onSubmit, onCancel, lo
   )
 }
 
-// ============ Transaction Items Table Component ============
-interface TransactionItemWithCategory extends TransactionItem {
-  category?: string
-}
-
+// ============ Transaction Items Table in View Dialog ============
 interface TransactionItemsTableProps {
-  items: TransactionItemWithCategory[]
+  items: TransactionItem[]
   products: Product[]
-  categories: string[]
 }
 
-function TransactionItemsTable({ items, products, categories }: TransactionItemsTableProps) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [selectedCategory, setSelectedCategory] = React.useState<string>('all')
-
-  // Enrich items with category from products
-  const enrichedItems = React.useMemo(() => {
-    return items.map(item => {
-      const product = products.find(p => p.id === item.productId)
-      return {
-        ...item,
-        category: product?.category || 'Unknown'
-      }
-    })
-  }, [items, products])
-
-  // Filter items by category
-  const filteredItems = React.useMemo(() => {
-    if (selectedCategory === 'all') return enrichedItems
-    return enrichedItems.filter(item => item.category === selectedCategory)
-  }, [enrichedItems, selectedCategory])
-
-  // Columns for transaction items
-  const columns: ColumnDef<TransactionItemWithCategory>[] = [
-    {
-      accessorKey: 'productCode',
-      header: ({ column }) => <SortableHeader column={column} title="Kode Produk" />,
-      cell: ({ row }) => (
-        <span className="font-medium text-xs">{row.getValue('productCode')}</span>
-      ),
-    },
-    {
-      accessorKey: 'productName',
-      header: ({ column }) => <SortableHeader column={column} title="Nama Produk" />,
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-xs">{row.getValue('productName')}</p>
-          <p className="text-[10px] text-muted-foreground">{row.original.category}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'category',
-      header: 'Kategori',
-      cell: ({ row }) => (
-        <Badge variant="outline" className="text-[10px]">{row.getValue('category')}</Badge>
-      ),
-    },
-    {
-      accessorKey: 'qtyOrderUnit',
-      header: ({ column }) => <SortableHeader column={column} title="Qty Order" />,
-      cell: ({ row }) => (
-        <div className="text-xs">
-          <span className="font-medium">{row.getValue('qtyOrderUnit')}</span>
-          <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
-          <br/>
-          <span className="text-muted-foreground">{row.original.qtyOrderKg} {row.original.kgName}</span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'qtyFulfilledUnit',
-      header: ({ column }) => <SortableHeader column={column} title="Qty Terkirim" />,
-      cell: ({ row }) => (
-        <div className="text-xs">
-          <span className="font-medium text-green-600">{row.getValue('qtyFulfilledUnit')}</span>
-          <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
-          <br/>
-          <span className="text-muted-foreground">{row.original.qtyFulfilledKg} {row.original.kgName}</span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'qtyUnfulfilledUnit',
-      header: ({ column }) => <SortableHeader column={column} title="Qty Belum Terkirim" />,
-      cell: ({ row }) => {
-        const unfulfilled = row.getValue('qtyUnfulfilledUnit') as number
-        return (
-          <div className="text-xs">
-            <span className={unfulfilled > 0 ? 'font-medium text-red-600' : 'text-muted-foreground'}>{unfulfilled}</span>
-            <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
-            {unfulfilled > 0 && (
-              <>
-                <br/>
-                <span className="text-muted-foreground">{row.original.qtyUnfulfilledKg} {row.original.kgName}</span>
-              </>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      accessorKey: 'pricePerUnit',
-      header: ({ column }) => <SortableHeader column={column} title="Harga/Unit" />,
-      cell: ({ row }) => formatCurrency(row.getValue('pricePerUnit')),
-    },
-    {
-      accessorKey: 'pricePerKg',
-      header: ({ column }) => <SortableHeader column={column} title="Harga/Kg" />,
-      cell: ({ row }) => formatCurrency(row.getValue('pricePerKg')),
-    },
-    {
-      accessorKey: 'subtotal',
-      header: ({ column }) => <SortableHeader column={column} title="Subtotal" />,
-      cell: ({ row }) => <span className="font-medium">{formatCurrency(row.getValue('subtotal'))}</span>,
-    },
-    {
-      accessorKey: 'taxAmount',
-      header: ({ column }) => <SortableHeader column={column} title="PPN" />,
-      cell: ({ row }) => {
-        const tax = row.getValue('taxAmount') as number
-        return tax > 0 ? formatCurrency(tax) : '-'
-      },
-    },
-    {
-      accessorKey: 'totalAmount',
-      header: ({ column }) => <SortableHeader column={column} title="Total" />,
-      cell: ({ row }) => <span className="font-bold">{formatCurrency(row.getValue('totalAmount'))}</span>,
-    },
-    {
-      accessorKey: 'fulfillmentStatus',
-      header: 'Status Fulfillment',
-      cell: ({ row }) => {
-        const status = row.getValue('fulfillmentStatus') as string
-        return (
-          <Badge className={FULFILLMENT_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'}>
-            {FULFILLMENT_STATUS_LABELS[status] || status}
-          </Badge>
-        )
-      },
-    },
-    {
-      accessorKey: 'isPPN',
-      header: 'PPN',
-      cell: ({ row }) => (
-        <Badge variant={row.getValue('isPPN') ? 'default' : 'outline'}>
-          {row.getValue('isPPN') ? 'Ya' : 'Tidak'}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: 'notes',
-      header: 'Catatan',
-      cell: ({ row }) => {
-        const notes = row.getValue('notes') as string
-        return notes ? <span className="text-xs text-muted-foreground max-w-[100px] truncate block">{notes}</span> : '-'
-      },
-    },
-  ]
-
+function TransactionItemsTable({ items, products }: TransactionItemsTableProps) {
   return (
-    <div className="space-y-3">
-      {/* Category Filter */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Filter Kategori:</span>
-        <div className="flex gap-1 flex-wrap">
-          <Button
-            variant={selectedCategory === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedCategory('all')}
-            className="h-7 text-xs"
-          >
-            Semua
-          </Button>
-          {categories.map(category => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className="h-7 text-xs"
-            >
-              {category}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Info */}
-      {selectedCategory !== 'all' && (
-        <div className="text-xs text-muted-foreground">
-          Menampilkan {filteredItems.length} dari {enrichedItems.length} item
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="rounded-md border overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="h-10 px-2 text-left font-medium">Kode Produk</th>
-              <th className="h-10 px-2 text-left font-medium">Nama Produk</th>
-              <th className="h-10 px-2 text-left font-medium">Kategori</th>
-              <th className="h-10 px-2 text-left font-medium">Qty Order</th>
-              <th className="h-10 px-2 text-left font-medium">Qty Terkirim</th>
-              <th className="h-10 px-2 text-left font-medium">Qty Belum</th>
-              <th className="h-10 px-2 text-right font-medium">Harga/Unit</th>
-              <th className="h-10 px-2 text-right font-medium">Harga/Kg</th>
-              <th className="h-10 px-2 text-right font-medium">Subtotal</th>
-              <th className="h-10 px-2 text-right font-medium">PPN</th>
-              <th className="h-10 px-2 text-right font-medium">Total</th>
-              <th className="h-10 px-2 text-center font-medium">Status</th>
-              <th className="h-10 px-2 text-center font-medium">PPN</th>
-              <th className="h-10 px-2 text-left font-medium">Catatan</th>
+    <div className="border rounded-lg overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            <th className="h-9 px-3 text-left font-medium">Kode Barang</th>
+            <th className="h-9 px-3 text-left font-medium">Nama Barang</th>
+            <th className="h-9 px-3 text-right font-medium">Qty Order</th>
+            <th className="h-9 px-3 text-right font-medium">Qty Terkirim</th>
+            <th className="h-9 px-3 text-right font-medium">Harga/Unit</th>
+            <th className="h-9 px-3 text-right font-medium">Subtotal</th>
+            <th className="h-9 px-3 text-center font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => (
+            <tr key={item.id || index} className="border-b hover:bg-muted/50">
+              <td className="p-3 font-medium">{item.productCode}</td>
+              <td className="p-3">
+                <div>
+                  <p className="font-medium">{item.productName}</p>
+                  <p className="text-xs text-muted-foreground">{item.unitName}</p>
+                </div>
+              </td>
+              <td className="p-3 text-right">
+                <span className="font-medium">{item.qtyOrderUnit}</span>
+                <span className="text-muted-foreground ml-1">{item.unitName}</span>
+              </td>
+              <td className="p-3 text-right">
+                <span className="font-medium text-green-600">{item.qtyFulfilledUnit}</span>
+                <span className="text-muted-foreground ml-1">{item.unitName}</span>
+              </td>
+              <td className="p-3 text-right">{formatCurrency(item.pricePerUnit)}</td>
+              <td className="p-3 text-right font-medium">{formatCurrency(item.subtotal)}</td>
+              <td className="p-3 text-center">
+                <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100'}>
+                  {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
+                </Badge>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item, index) => (
-                <tr key={item.id || index} className="border-b hover:bg-muted/50">
-                  <td className="p-2 font-medium">{item.productCode}</td>
-                  <td className="p-2">
-                    <div>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-[10px] text-muted-foreground">{item.category}</p>
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <Badge variant="outline" className="text-[10px]">{item.category}</Badge>
-                  </td>
-                  <td className="p-2">
-                    <div>
-                      <span className="font-medium">{item.qtyOrderUnit}</span>
-                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
-                      <br/>
-                      <span className="text-muted-foreground">{item.qtyOrderKg} {item.kgName}</span>
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div>
-                      <span className="font-medium text-green-600">{item.qtyFulfilledUnit}</span>
-                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
-                      <br/>
-                      <span className="text-muted-foreground">{item.qtyFulfilledKg} {item.kgName}</span>
-                    </div>
-                  </td>
-                  <td className="p-2">
-                    <div>
-                      <span className={item.qtyUnfulfilledUnit > 0 ? 'font-medium text-red-600' : 'text-muted-foreground'}>
-                        {item.qtyUnfulfilledUnit}
-                      </span>
-                      <span className="text-muted-foreground ml-1">{item.unitName}</span>
-                      {item.qtyUnfulfilledUnit > 0 && (
-                        <>
-                          <br/>
-                          <span className="text-muted-foreground">{item.qtyUnfulfilledKg} {item.kgName}</span>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-2 text-right">{formatCurrency(item.pricePerUnit)}</td>
-                  <td className="p-2 text-right">{formatCurrency(item.pricePerKg)}</td>
-                  <td className="p-2 text-right font-medium">{formatCurrency(item.subtotal)}</td>
-                  <td className="p-2 text-right">{item.taxAmount > 0 ? formatCurrency(item.taxAmount) : '-'}</td>
-                  <td className="p-2 text-right font-bold">{formatCurrency(item.totalAmount)}</td>
-                  <td className="p-2 text-center">
-                    <Badge className={FULFILLMENT_STATUS_COLORS[item.fulfillmentStatus] || 'bg-gray-100 text-gray-800'}>
-                      {FULFILLMENT_STATUS_LABELS[item.fulfillmentStatus] || item.fulfillmentStatus}
-                    </Badge>
-                  </td>
-                  <td className="p-2 text-center">
-                    <Badge variant={item.isPPN ? 'default' : 'outline'}>
-                      {item.isPPN ? 'Ya' : 'Tidak'}
-                    </Badge>
-                  </td>
-                  <td className="p-2 max-w-[100px]">
-                    {item.notes ? (
-                      <span className="text-muted-foreground truncate block">{item.notes}</span>
-                    ) : '-'}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={14} className="h-24 text-center text-muted-foreground">
-                  Tidak ada data untuk kategori ini
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Summary */}
-      <div className="bg-muted/50 rounded-lg p-3 text-xs">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <span className="text-muted-foreground">Total Item:</span>
-            <span className="ml-2 font-medium">{filteredItems.length}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Total Subtotal:</span>
-            <span className="ml-2 font-medium">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.subtotal, 0))}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Total PPN:</span>
-            <span className="ml-2 font-medium">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.taxAmount, 0))}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Grand Total:</span>
-            <span className="ml-2 font-bold">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.totalAmount, 0))}</span>
-          </div>
-        </div>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -751,18 +714,22 @@ export default function TransactionsPage() {
   const paymentMethods = usePaymentMethods()
   const taxRateSetting = useTaxRate()
   const categories = useProductCategories()
+
   const [openDialog, setOpenDialog] = React.useState(false)
   const [viewDialog, setViewDialog] = React.useState(false)
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
   const [deleteDialog, setDeleteDialog] = React.useState(false)
   const [paymentDialog, setPaymentDialog] = React.useState(false)
 
+  // Global search state
+  const [globalSearch, setGlobalSearch] = React.useState('')
+
   React.useEffect(() => {
     setPageTitle('Transactions')
     setBreadcrumbs([{ title: 'Transactions' }])
   }, [setPageTitle, setBreadcrumbs])
 
-  // Fetch transactions
+  // Fetch transactions with items
   const { data: transactionsResponse, isLoading: transactionsLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
@@ -794,7 +761,47 @@ export default function TransactionsPage() {
   const customers = customersResponse?.success ? customersResponse.data as Customer[] : []
   const products = productsResponse?.success ? productsResponse.data as Product[] : []
 
-  // Fetch single transaction with items
+  // Flatten transactions to items for display
+  const transactionItems: TransactionItemDisplay[] = React.useMemo(() => {
+    const items: TransactionItemDisplay[] = []
+    transactions.forEach(tx => {
+      if (tx.items && tx.items.length > 0) {
+        tx.items.forEach(item => {
+          items.push({
+            ...item,
+            invoiceDate: tx.invoiceDate,
+            customerCode: tx.customerCode,
+            customerName: tx.customerName,
+            salesName: tx.salesName,
+            paymentStatus: tx.paymentStatus,
+            deliveryStatus: tx.deliveryStatus,
+            transactionId: tx.id,
+          })
+        })
+      }
+    })
+    return items
+  }, [transactions])
+
+  // Filter items based on global search
+  const filteredItems = React.useMemo(() => {
+    if (!globalSearch.trim()) return transactionItems
+
+    const search = globalSearch.toLowerCase()
+    return transactionItems.filter(item => {
+      return (
+        item.invoiceNumber.toLowerCase().includes(search) ||
+        item.productCode.toLowerCase().includes(search) ||
+        item.productName.toLowerCase().includes(search) ||
+        item.customerName.toLowerCase().includes(search) ||
+        item.customerCode.toLowerCase().includes(search) ||
+        item.salesName.toLowerCase().includes(search) ||
+        item.unitName.toLowerCase().includes(search)
+      )
+    })
+  }, [transactionItems, globalSearch])
+
+  // Fetch single transaction with items for view dialog
   const { data: transactionDetails } = useQuery({
     queryKey: ['transaction', selectedTransaction?.id],
     queryFn: async () => {
@@ -816,7 +823,7 @@ export default function TransactionsPage() {
 
       const response = await api.createTransaction({
         customerId: data.customerId,
-        salesId: '', // Will be filled by backend based on salesName
+        salesId: '',
         salesName: data.salesName,
         subtotal,
         taxAmount,
@@ -856,115 +863,104 @@ export default function TransactionsPage() {
     },
   })
 
-  // Delete mutation (not implemented in API, kept for UI consistency)
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // Note: Transaction deletion is typically not supported
-      // This would need a specific API endpoint
-      return { success: false, error: 'Transaction deletion is not supported' }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      setDeleteDialog(false)
-      setSelectedTransaction(null)
-    },
-  })
-
-  // Columns
-  const columns: ColumnDef<Transaction>[] = [
+  // Columns for transaction items table
+  const columns: ColumnDef<TransactionItemDisplay>[] = [
     {
       accessorKey: 'invoiceNumber',
       header: ({ column }) => <SortableHeader column={column} title="Invoice" />,
       cell: ({ row }) => (
-        <span className="font-medium">{row.getValue('invoiceNumber')}</span>
+        <span className="font-medium text-xs">{row.getValue('invoiceNumber')}</span>
+      ),
+    },
+    {
+      accessorKey: 'invoiceDate',
+      header: ({ column }) => <SortableHeader column={column} title="Tanggal" />,
+      cell: ({ row }) => (
+        <span className="text-xs">{formatDateTime(row.getValue('invoiceDate'))}</span>
       ),
     },
     {
       accessorKey: 'customerName',
       header: ({ column }) => <SortableHeader column={column} title="Customer" />,
-      cell: ({ row }) => {
-        const customerCode = row.original.customerCode
-        const customerName = row.original.customerName
-        return (
-          <div>
-            <p className="font-medium">{customerName}</p>
-            <p className="text-xs text-muted-foreground">{customerCode}</p>
-          </div>
-        )
-      },
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-xs">{row.getValue('customerName')}</p>
+          <p className="text-[10px] text-muted-foreground">{row.original.customerCode}</p>
+        </div>
+      ),
     },
     {
-      accessorKey: 'grandTotal',
-      header: 'Total',
-      cell: ({ row }) => formatCurrency(row.getValue('grandTotal')),
+      accessorKey: 'productCode',
+      header: ({ column }) => <SortableHeader column={column} title="Kode Barang" />,
+      cell: ({ row }) => (
+        <Badge variant="outline" className="font-mono text-xs">{row.getValue('productCode')}</Badge>
+      ),
     },
     {
-      accessorKey: 'paidAmount',
-      header: 'Paid',
-      cell: ({ row }) => formatCurrency(row.getValue('paidAmount')),
+      accessorKey: 'productName',
+      header: ({ column }) => <SortableHeader column={column} title="Nama Barang" />,
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-xs">{row.getValue('productName')}</p>
+          <p className="text-[10px] text-muted-foreground">{row.original.unitName}</p>
+        </div>
+      ),
     },
     {
-      accessorKey: 'paymentStatus',
-      header: 'Payment',
-      cell: ({ row }) => {
-        const status = row.getValue('paymentStatus') as string
-        return (
-          <Badge className={PAYMENT_STATUS_COLORS[status]}>
-            {PAYMENT_STATUS_LABELS[status]}
-          </Badge>
-        )
-      },
+      accessorKey: 'qtyOrderUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Qty" />,
+      cell: ({ row }) => (
+        <div className="text-xs text-right">
+          <span className="font-medium">{row.getValue('qtyOrderUnit')}</span>
+          <span className="text-muted-foreground ml-1">{row.original.unitName}</span>
+        </div>
+      ),
     },
     {
-      accessorKey: 'deliveryStatus',
+      accessorKey: 'pricePerUnit',
+      header: ({ column }) => <SortableHeader column={column} title="Harga" />,
+      cell: ({ row }) => (
+        <span className="text-xs">{formatCurrency(row.getValue('pricePerUnit'))}</span>
+      ),
+    },
+    {
+      accessorKey: 'subtotal',
+      header: ({ column }) => <SortableHeader column={column} title="Subtotal" />,
+      cell: ({ row }) => (
+        <span className="text-xs font-medium">{formatCurrency(row.getValue('subtotal'))}</span>
+      ),
+    },
+    {
+      accessorKey: 'fulfillmentStatus',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.getValue('deliveryStatus') as string
+        const status = row.getValue('fulfillmentStatus') as string
         return (
-          <Badge className={DELIVERY_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'}>
-            {DELIVERY_STATUS_LABELS[status] || status}
+          <Badge className={FULFILLMENT_STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'} >
+            {FULFILLMENT_STATUS_LABELS[status] || status}
           </Badge>
         )
       },
-    },
-    {
-      accessorKey: 'invoiceDate',
-      header: 'Date',
-      cell: ({ row }) => formatDateTime(row.getValue('invoiceDate')),
     },
     {
       id: 'actions',
       cell: ({ row }) => {
-        const tx = row.original
+        const item = row.original
         return (
-          <RowActions
-            row={tx}
-            actions={[
-              {
-                label: 'View',
-                icon: <Eye className="h-4 w-4" />,
-                onClick: () => {
-                  setSelectedTransaction(tx)
-                  setViewDialog(true)
-                },
-              },
-              {
-                label: 'Update Payment',
-                icon: <CreditCard className="h-4 w-4" />,
-                onClick: () => {
-                  setSelectedTransaction(tx)
-                  setPaymentDialog(true)
-                },
-              },
-              {
-                label: 'Print',
-                icon: <Printer className="h-4 w-4" />,
-                onClick: () => {
-                  // TODO: Print invoice
-                },
-              },
-            ]}
-          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const tx = transactions.find(t => t.id === item.transactionId)
+              if (tx) {
+                setSelectedTransaction(tx)
+                setViewDialog(true)
+              }
+            }}
+            className="h-7 px-2"
+          >
+            <Eye className="h-3 w-3 mr-1" /> Lihat
+          </Button>
         )
       },
     },
@@ -988,25 +984,54 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Transactions" description="Manage sales transactions">
+      <PageHeader title="Transactions" description="Kelola transaksi penjualan">
         <Button onClick={() => { setSelectedTransaction(null); setOpenDialog(true) }}>
           <Plus className="h-4 w-4 mr-2" />
-          New Transaction
+          Transaksi Baru
         </Button>
       </PageHeader>
 
+      {/* Global Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Cari berdasarkan invoice, customer, kode barang, nama barang, sales..."
+          value={globalSearch}
+          onChange={(e) => setGlobalSearch(e.target.value)}
+          className="pl-10 pr-10"
+        />
+        {globalSearch && (
+          <button
+            onClick={() => setGlobalSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Search Results Info */}
+      {globalSearch && (
+        <div className="text-sm text-muted-foreground">
+          Menampilkan {filteredItems.length} dari {transactionItems.length} item untuk "{globalSearch}"
+        </div>
+      )}
+
+      {/* Data Table */}
       <DataTable
         columns={columns}
-        data={transactions || []}
-        searchKey="invoiceNumber"
-        searchPlaceholder="Search transactions..."
+        data={filteredItems}
+        searchKey={undefined}
+        enableColumnVisibility={true}
+        enablePagination={true}
+        emptyMessage={globalSearch ? "Tidak ada data yang cocok dengan pencarian" : "Belum ada transaksi"}
       />
 
       {/* Transaction Form Dialog */}
       <ModalForm
         open={openDialog}
         onOpenChange={setOpenDialog}
-        title={selectedTransaction ? 'Edit Transaction' : 'New Transaction'}
+        title={selectedTransaction ? 'Edit Transaksi' : 'Transaksi Baru'}
         maxWidth="2xl"
       >
         <TransactionForm
@@ -1027,15 +1052,19 @@ export default function TransactionsPage() {
         open={viewDialog}
         onOpenChange={setViewDialog}
         title="Detail Transaksi"
-        maxWidth="2xl"
+        maxWidth="lg"
       >
         {detailedTransaction && (
           <div className="space-y-4">
             {/* Transaction Header */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
-                <p className="text-xs text-muted-foreground">Invoice Number</p>
+                <p className="text-xs text-muted-foreground">Invoice</p>
                 <p className="font-medium">{detailedTransaction.invoiceNumber}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Tanggal</p>
+                <p className="font-medium">{formatDateTime(detailedTransaction.invoiceDate)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Customer</p>
@@ -1043,54 +1072,49 @@ export default function TransactionsPage() {
                 <p className="text-xs text-muted-foreground">{detailedTransaction.customerCode}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Date</p>
-                <p className="font-medium">{formatDateTime(detailedTransaction.invoiceDate)}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">Sales</p>
                 <p className="font-medium">{detailedTransaction.salesName}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Delivery Status</p>
-                <Badge className={DELIVERY_STATUS_COLORS[detailedTransaction.deliveryStatus] || 'bg-gray-100 text-gray-800'}>
-                  {DELIVERY_STATUS_LABELS[detailedTransaction.deliveryStatus] || detailedTransaction.deliveryStatus}
+                <p className="text-xs text-muted-foreground">Status Pembayaran</p>
+                <Badge className={PAYMENT_STATUS_COLORS[detailedTransaction.paymentStatus]}>
+                  {PAYMENT_STATUS_LABELS[detailedTransaction.paymentStatus]}
                 </Badge>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Payment Status</p>
-                <Badge className={PAYMENT_STATUS_COLORS[detailedTransaction.paymentStatus]}>
-                  {PAYMENT_STATUS_LABELS[detailedTransaction.paymentStatus]}
+                <p className="text-xs text-muted-foreground">Status Pengiriman</p>
+                <Badge className={DELIVERY_STATUS_COLORS[detailedTransaction.deliveryStatus] || 'bg-gray-100'}>
+                  {DELIVERY_STATUS_LABELS[detailedTransaction.deliveryStatus] || detailedTransaction.deliveryStatus}
                 </Badge>
               </div>
             </div>
 
             <Separator />
 
-            {/* Transaction Items Table */}
+            {/* Items Table */}
             <div>
               <h4 className="font-medium mb-3">Item Transaksi</h4>
               <TransactionItemsTable
                 items={detailedTransaction.items || []}
                 products={products}
-                categories={categories}
               />
             </div>
 
             <Separator />
 
-            {/* Transaction Summary */}
+            {/* Summary */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span>{formatCurrency(detailedTransaction.subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Tax</span>
+                <span>PPN</span>
                 <span>{formatCurrency(detailedTransaction.taxAmount)}</span>
               </div>
               {detailedTransaction.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount</span>
+                  <span>Diskon</span>
                   <span>-{formatCurrency(detailedTransaction.discountAmount)}</span>
                 </div>
               )}
@@ -1100,11 +1124,11 @@ export default function TransactionsPage() {
                 <span>{formatCurrency(detailedTransaction.grandTotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Paid</span>
+                <span>Dibayar</span>
                 <span className="text-green-600">{formatCurrency(detailedTransaction.paidAmount)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Remaining</span>
+                <span>Sisa</span>
                 <span className={detailedTransaction.remainingAmount > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
                   {formatCurrency(detailedTransaction.remainingAmount)}
                 </span>
@@ -1113,41 +1137,38 @@ export default function TransactionsPage() {
 
             {detailedTransaction.notes && (
               <div>
-                <p className="text-xs text-muted-foreground">Notes</p>
+                <p className="text-xs text-muted-foreground">Catatan</p>
                 <p className="text-sm">{detailedTransaction.notes}</p>
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setViewDialog(false)}>Close</Button>
-              <Button onClick={() => { 
-                setViewDialog(false); 
-                setOpenDialog(true); 
+              <Button variant="outline" onClick={() => setViewDialog(false)}>Tutup</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setViewDialog(false)
+                  setPaymentDialog(true)
+                }}
+              >
+                <CreditCard className="h-4 w-4 mr-1" /> Update Pembayaran
+              </Button>
+              <Button onClick={() => {
+                setViewDialog(false)
+                setOpenDialog(true)
               }}>
-                Edit Transaction
+                Edit Transaksi
               </Button>
             </div>
           </div>
         )}
       </ModalForm>
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        open={deleteDialog}
-        onOpenChange={setDeleteDialog}
-        title="Delete Transaction"
-        description={`Are you sure you want to delete "${selectedTransaction?.invoiceNumber}"? This action cannot be undone.`}
-        variant="destructive"
-        confirmText="Delete"
-        onConfirm={() => selectedTransaction && deleteMutation.mutate(selectedTransaction.id)}
-        loading={deleteMutation.isPending}
-      />
-
       {/* Payment Update Dialog */}
       <ModalForm
         open={paymentDialog}
         onOpenChange={setPaymentDialog}
-        title="Update Payment"
+        title="Update Pembayaran"
         maxWidth="sm"
       >
         {selectedTransaction && (
