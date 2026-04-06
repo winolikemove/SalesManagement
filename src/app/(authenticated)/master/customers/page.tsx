@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, Eye, Phone } from 'lucide-react'
+import { Plus, Pencil, Trash2, MapPin, Phone, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
@@ -13,24 +13,23 @@ import { formatDateTime, formatCurrency } from '@/lib/utils'
 import { usePageHeader } from '@/stores/app-store'
 import type { Customer } from '@/types'
 
-// ============ Mock Data ============
-const mockCustomers: Customer[] = [
-  { id: '1', code: 'CUST001', name: 'PT ABC Corporation', email: 'info@abc.com', phone: '0211234567', address: 'Jl. Sudirman No. 1', city: 'Jakarta', isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', totalTransactions: 45, totalSpent: 125000000 },
-  { id: '2', code: 'CUST002', name: 'CV XYZ Trading', email: 'sales@xyz.com', phone: '0217654321', address: 'Jl. Gatot Subroto No. 10', city: 'Jakarta', isActive: true, createdAt: '2024-01-02', updatedAt: '2024-01-02', totalTransactions: 32, totalSpent: 87500000 },
-  { id: '3', code: 'CUST003', name: 'UD DEF Store', email: 'contact@def.com', phone: '0215551234', address: 'Jl. Hayam Wuruk No. 5', city: 'Jakarta', isActive: true, createdAt: '2024-01-03', updatedAt: '2024-01-03', totalTransactions: 28, totalSpent: 62500000 },
-  { id: '4', code: 'CUST004', name: 'PT GHI Indonesia', email: 'info@ghi.com', phone: '0219998877', address: 'Jl. Thamrin No. 20', city: 'Jakarta', isActive: false, createdAt: '2024-01-04', updatedAt: '2024-01-04', totalTransactions: 12, totalSpent: 35000000 },
-]
-
 // ============ Customer Form Component ============
 interface CustomerFormData {
-  name: string
-  email: string
-  phone: string
+  customerCode: string
+  customerName: string
   address: string
   city: string
+  province: string
   postalCode: string
-  notes: string
+  googleMapsUrl: string
+  picName: string
+  picPosition: string
+  picPhone: string
+  picEmail: string
+  creditLimit: number
+  paymentTerms: number
   isActive: boolean
+  notes: string
 }
 
 function CustomerForm({ customer, onSubmit, onCancel, loading }: {
@@ -40,14 +39,21 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
   loading?: boolean
 }) {
   const [formData, setFormData] = React.useState<CustomerFormData>({
-    name: customer?.name || '',
-    email: customer?.email || '',
-    phone: customer?.phone || '',
+    customerCode: customer?.customerCode || '',
+    customerName: customer?.customerName || '',
     address: customer?.address || '',
     city: customer?.city || '',
+    province: customer?.province || '',
     postalCode: customer?.postalCode || '',
-    notes: customer?.notes || '',
+    googleMapsUrl: customer?.googleMapsUrl || '',
+    picName: customer?.picName || '',
+    picPosition: customer?.picPosition || '',
+    picPhone: customer?.picPhone || '',
+    picEmail: customer?.picEmail || '',
+    creditLimit: customer?.creditLimit || 0,
+    paymentTerms: customer?.paymentTerms || 30,
     isActive: customer?.isActive ?? true,
+    notes: customer?.notes || '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,86 +63,194 @@ function CustomerForm({ customer, onSubmit, onCancel, loading }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="col-span-1 sm:col-span-2 space-y-2">
-          <label className="text-sm font-medium">Name *</label>
-          <input
-            type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Email</label>
-          <input
-            type="email"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Phone *</label>
-          <input
-            type="tel"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            required
-          />
+      {/* Customer Info */}
+      <div className="border-b pb-4 mb-4">
+        <h4 className="font-medium mb-3">Customer Information</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Customer Code *</label>
+            <input
+              type="text"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.customerCode}
+              onChange={(e) => setFormData({ ...formData, customerCode: e.target.value.toUpperCase() })}
+              required
+              placeholder="e.g., CUST001"
+              disabled={!!customer}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Customer Name *</label>
+            <input
+              type="text"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.customerName}
+              onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+              required
+              placeholder="Enter customer name"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Address</label>
-        <textarea
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-        />
+      {/* Address Info */}
+      <div className="border-b pb-4 mb-4">
+        <h4 className="font-medium mb-3">Address Information</h4>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Address *</label>
+            <textarea
+              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              required
+              placeholder="Enter full address"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">City</label>
+              <input
+                type="text"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="City"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Province</label>
+              <input
+                type="text"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.province}
+                onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                placeholder="Province"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Postal Code</label>
+              <input
+                type="text"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.postalCode}
+                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                placeholder="Postal code"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Google Maps URL</label>
+            <input
+              type="url"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.googleMapsUrl}
+              onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
+              placeholder="https://maps.google.com/..."
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* PIC Info */}
+      <div className="border-b pb-4 mb-4">
+        <h4 className="font-medium mb-3">Person In Charge (PIC)</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PIC Name</label>
+            <input
+              type="text"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.picName}
+              onChange={(e) => setFormData({ ...formData, picName: e.target.value })}
+              placeholder="Contact person name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PIC Position</label>
+            <input
+              type="text"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.picPosition}
+              onChange={(e) => setFormData({ ...formData, picPosition: e.target.value })}
+              placeholder="Position"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PIC Phone *</label>
+            <input
+              type="tel"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.picPhone}
+              onChange={(e) => setFormData({ ...formData, picPhone: e.target.value })}
+              required
+              placeholder="Phone number"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PIC Email</label>
+            <input
+              type="email"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.picEmail}
+              onChange={(e) => setFormData({ ...formData, picEmail: e.target.value })}
+              placeholder="Email address"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Credit Info */}
+      <div className="border-b pb-4 mb-4">
+        <h4 className="font-medium mb-3">Credit & Payment</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Credit Limit</label>
+            <input
+              type="number"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.creditLimit}
+              onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+              min={0}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Payment Terms (days)</label>
+            <input
+              type="number"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={formData.paymentTerms}
+              onChange={(e) => setFormData({ ...formData, paymentTerms: Number(e.target.value) })}
+              min={0}
+              placeholder="30"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Notes & Status */}
+      <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">City</label>
-          <input
-            type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+          <label className="text-sm font-medium">Notes</label>
+          <textarea
+            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder="Additional notes..."
           />
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Postal Code</label>
+
+        <div className="flex items-center space-x-2">
           <input
-            type="text"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.postalCode}
-            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+            type="checkbox"
+            id="isActive"
+            checked={formData.isActive}
+            onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+            className="h-4 w-4"
           />
+          <label htmlFor="isActive" className="text-sm font-medium">Active</label>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Notes</label>
-        <textarea
-          className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-        />
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="isActive"
-          checked={formData.isActive}
-          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-          className="h-4 w-4"
-        />
-        <label htmlFor="isActive" className="text-sm font-medium">Active</label>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
@@ -163,14 +277,16 @@ export default function CustomersPage() {
   }, [setPageTitle, setBreadcrumbs])
 
   // Fetch customers
-  const { data: customers, isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['customers'],
-    queryFn: async () => mockCustomers,
+    queryFn: () => api.getCustomers(),
   })
+
+  const customers = response?.data || []
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: CustomerFormData) => ({ success: true }),
+    mutationFn: (data: CustomerFormData) => api.createCustomer(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       setOpenDialog(false)
@@ -179,7 +295,7 @@ export default function CustomersPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CustomerFormData> }) => ({ success: true }),
+    mutationFn: ({ id, data }: { id: string; data: Partial<CustomerFormData> }) => api.updateCustomer(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       setOpenDialog(false)
@@ -188,7 +304,7 @@ export default function CustomersPage() {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => ({ success: true }),
+    mutationFn: (id: string) => api.deleteCustomer(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       setDeleteDialog(false)
@@ -198,39 +314,41 @@ export default function CustomersPage() {
   // Columns
   const columns: ColumnDef<Customer>[] = [
     {
-      accessorKey: 'code',
+      accessorKey: 'customerCode',
       header: ({ column }) => <SortableHeader column={column} title="Code" />,
     },
     {
-      accessorKey: 'name',
-      header: ({ column }) => <SortableHeader column={column} title="Name" />,
+      accessorKey: 'customerName',
+      header: ({ column }) => <SortableHeader column={column} title="Customer Name" />,
       cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.getValue('name')}</p>
-          <p className="text-xs text-muted-foreground">{row.original.email}</p>
+          <p className="font-medium">{row.getValue('customerName')}</p>
+          <p className="text-xs text-muted-foreground">{row.original.city}</p>
         </div>
       ),
     },
     {
-      accessorKey: 'phone',
-      header: 'Phone',
-    },
-    {
-      accessorKey: 'city',
-      header: 'City',
-    },
-    {
-      accessorKey: 'totalTransactions',
-      header: 'Transactions',
+      accessorKey: 'picName',
+      header: 'PIC',
       cell: ({ row }) => {
-        const count = row.getValue('totalTransactions') as number
-        return <span>{count || 0}</span>
+        const customer = row.original
+        return (
+          <div>
+            <p>{customer.picName || '-'}</p>
+            <p className="text-xs text-muted-foreground">{customer.picPhone}</p>
+          </div>
+        )
       },
     },
     {
-      accessorKey: 'totalSpent',
-      header: 'Total Spent',
-      cell: ({ row }) => formatCurrency(row.getValue('totalSpent') || 0),
+      accessorKey: 'creditLimit',
+      header: 'Credit Limit',
+      cell: ({ row }) => formatCurrency(row.getValue('creditLimit') || 0),
+    },
+    {
+      accessorKey: 'currentCredit',
+      header: 'Current Credit',
+      cell: ({ row }) => formatCurrency(row.getValue('currentCredit') || 0),
     },
     {
       accessorKey: 'isActive',
@@ -240,6 +358,11 @@ export default function CustomersPage() {
           {row.getValue('isActive') ? 'Active' : 'Inactive'}
         </Badge>
       ),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Created',
+      cell: ({ row }) => formatDateTime(row.getValue('createdAt')),
     },
     {
       id: 'actions',
@@ -297,7 +420,7 @@ export default function CustomersPage() {
       <DataTable
         columns={columns}
         data={customers || []}
-        searchKey="name"
+        searchKey="customerName"
         searchPlaceholder="Search customers..."
       />
 
@@ -319,7 +442,7 @@ export default function CustomersPage() {
         open={deleteDialog}
         onOpenChange={setDeleteDialog}
         title="Delete Customer"
-        description={`Are you sure you want to delete "${selectedCustomer?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${selectedCustomer?.customerName}"? This action cannot be undone.`}
         variant="destructive"
         confirmText="Delete"
         onConfirm={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}

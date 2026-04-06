@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
-import { Plus, Pencil, Trash2, MoreHorizontal, Eye, Key } from 'lucide-react'
+import { Plus, Pencil, Trash2, Key } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -11,28 +11,20 @@ import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
 import { api } from '@/lib/api'
 import { formatDateTime, cn } from '@/lib/utils'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, ROLE_OPTIONS } from '@/lib/constants'
 import { usePageHeader } from '@/stores/app-store'
 import { useIsAdmin } from '@/stores/auth-store'
 import type { User } from '@/types'
 
-// ============ Mock Data ============
-const mockUsers: User[] = [
-  { id: '1', username: 'admin', fullName: 'Admin User', email: 'admin@transman.com', role: 'SuperAdmin', phone: '081234567890', division: 'IT', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-01T10:00:00' },
-  { id: '2', username: 'manager', fullName: 'Manager User', email: 'manager@transman.com', role: 'Manager', phone: '081234567891', division: 'Management', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-02T10:00:00' },
-  { id: '3', username: 'sales1', fullName: 'Sales One', email: 'sales1@transman.com', role: 'Sales', phone: '081234567892', division: 'Sales', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-03T10:00:00' },
-  { id: '4', username: 'driver1', fullName: 'Driver One', email: 'driver1@transman.com', role: 'Driver', phone: '081234567893', division: 'Logistics', photoUrl: '', permissions: [], isActive: true, createdAt: '2024-01-04T10:00:00' },
-  { id: '5', username: 'cashier1', fullName: 'Cashier One', email: 'cashier1@transman.com', role: 'Cashier', phone: '081234567894', division: 'Finance', photoUrl: '', permissions: [], isActive: false, createdAt: '2024-01-05T10:00:00' },
-]
-
 // ============ User Form Component ============
 interface UserFormData {
   username: string
-  name: string
-  email: string
-  role: string
-  phone: string
   password?: string
+  fullName: string
+  email: string
+  phone: string
+  role: string
+  division: string
   isActive: boolean
 }
 
@@ -44,11 +36,12 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
 }) {
   const [formData, setFormData] = React.useState<UserFormData>({
     username: user?.username || '',
-    name: user?.fullName || '',
-    email: user?.email || '',
-    role: user?.role || 'Sales',
-    phone: user?.phone || '',
     password: '',
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    role: user?.role || 'Sales',
+    division: user?.division || '',
     isActive: user?.isActive ?? true,
   })
 
@@ -69,16 +62,18 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
             required
             disabled={!!user}
+            placeholder="Enter username"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Name *</label>
+          <label className="text-sm font-medium">Full Name *</label>
           <input
             type="text"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            value={formData.fullName}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
             required
+            placeholder="Enter full name"
           />
         </div>
       </div>
@@ -92,6 +87,7 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
+            placeholder="Enter email"
           />
         </div>
         <div className="space-y-2">
@@ -101,6 +97,7 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            placeholder="Enter phone number"
           />
         </div>
       </div>
@@ -113,26 +110,37 @@ function UserForm({ user, onSubmit, onCancel, loading }: {
             value={formData.role}
             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
           >
-            <option value="admin">Administrator</option>
-            <option value="manager">Manager</option>
-            <option value="sales">Sales</option>
-            <option value="driver">Driver</option>
-            <option value="cashier">Cashier</option>
+            {ROLE_OPTIONS.map((role) => (
+              <option key={role.value} value={role.value}>{role.label}</option>
+            ))}
           </select>
         </div>
-        {!user && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Password *</label>
-            <input
-              type="password"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required={!user}
-            />
-          </div>
-        )}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Division</label>
+          <input
+            type="text"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.division}
+            onChange={(e) => setFormData({ ...formData, division: e.target.value })}
+            placeholder="Enter division"
+          />
+        </div>
       </div>
+
+      {!user && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Password *</label>
+          <input
+            type="password"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            required={!user}
+            placeholder="Enter password"
+            minLength={6}
+          />
+        </div>
+      )}
 
       <div className="flex items-center space-x-2">
         <input
@@ -170,21 +178,16 @@ export default function UsersPage() {
   }, [setPageTitle, setBreadcrumbs])
 
   // Fetch users
-  const { data: users, isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: async () => {
-      // const response = await api.getUsers()
-      // return response.data?.data || []
-      return mockUsers
-    },
+    queryFn: () => api.getUsers(),
   })
+
+  const users = response?.data || []
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: UserFormData) => {
-      // return api.createUser(data)
-      return { success: true }
-    },
+    mutationFn: (data: UserFormData) => api.createUser(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpenDialog(false)
@@ -193,10 +196,7 @@ export default function UsersPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<UserFormData> }) => {
-      // return api.updateUser(id, data)
-      return { success: true }
-    },
+    mutationFn: ({ id, data }: { id: string; data: Partial<UserFormData> }) => api.updateUser(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpenDialog(false)
@@ -205,10 +205,7 @@ export default function UsersPage() {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // return api.deleteUser(id)
-      return { success: true }
-    },
+    mutationFn: (id: string) => api.deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setDeleteDialog(false)
@@ -223,7 +220,7 @@ export default function UsersPage() {
       header: ({ column }) => <SortableHeader column={column} title="Name" />,
       cell: ({ row }) => {
         const user = row.original
-        const initials = user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        const initials = user.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
@@ -246,8 +243,12 @@ export default function UsersPage() {
       accessorKey: 'role',
       header: ({ column }) => <SortableHeader column={column} title="Role" />,
       cell: ({ row }) => (
-        <Badge variant="outline">{ROLE_LABELS[row.getValue('role')]}</Badge>
+        <Badge variant="outline">{ROLE_LABELS[row.getValue('role')] || row.getValue('role')}</Badge>
       ),
+    },
+    {
+      accessorKey: 'division',
+      header: 'Division',
     },
     {
       accessorKey: 'phone',

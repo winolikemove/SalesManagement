@@ -40,6 +40,14 @@ export const ROLE_LABELS: Record<string, string> = {
   Cashier: 'Kasir',
 }
 
+export const ROLE_OPTIONS = [
+  { value: 'SuperAdmin', label: 'Super Admin' },
+  { value: 'Manager', label: 'Manager' },
+  { value: 'Sales', label: 'Sales' },
+  { value: 'Driver', label: 'Driver' },
+  { value: 'Cashier', label: 'Kasir' },
+]
+
 // ============ Payment Status ============
 export const PAYMENT_STATUS = {
   UNPAID: 'UNPAID',

@@ -9,27 +9,21 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DataTable, SortableHeader, RowActions } from '@/components/shared/data-table'
 import { PageHeader, ModalForm, ConfirmDialog, LoadingScreen } from '@/components/shared'
+import { api } from '@/lib/api'
 import { formatDateTime, formatDate } from '@/lib/utils'
 import { usePageHeader } from '@/stores/app-store'
 import type { Driver } from '@/types'
 
-// ============ Mock Data ============
-const mockDrivers: Driver[] = [
-  { id: '1', name: 'Budi Santoso', phone: '081234567890', email: 'budi@transman.com', licenseNumber: 'SIM-123456', licenseExpiry: '2025-06-15', address: 'Jl. Margonda No. 10, Depok', isActive: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', totalDeliveries: 156 },
-  { id: '2', name: 'Ahmad Wijaya', phone: '081234567891', email: 'ahmad@transman.com', licenseNumber: 'SIM-234567', licenseExpiry: '2024-03-20', address: 'Jl. Sudirman No. 25, Jakarta', isActive: true, createdAt: '2024-01-02', updatedAt: '2024-01-02', totalDeliveries: 89 },
-  { id: '3', name: 'Dedi Kurniawan', phone: '081234567892', email: 'dedi@transman.com', licenseNumber: 'SIM-345678', licenseExpiry: '2024-12-01', address: 'Jl. Gatot Subroto No. 5, Jakarta', isActive: true, createdAt: '2024-01-03', updatedAt: '2024-01-03', totalDeliveries: 67 },
-  { id: '4', name: 'Rudi Hartono', phone: '081234567893', licenseNumber: 'SIM-456789', licenseExpiry: '2024-01-15', address: 'Jl. Thamrin No. 8, Jakarta', isActive: false, createdAt: '2024-01-04', updatedAt: '2024-01-04', totalDeliveries: 45 },
-]
-
 // ============ Driver Form Component ============
 interface DriverFormData {
-  name: string
+  driverCode: string
+  driverName: string
   phone: string
-  email: string
   licenseNumber: string
   licenseExpiry: string
   address: string
   isActive: boolean
+  notes: string
 }
 
 function DriverForm({ driver, onSubmit, onCancel, loading }: {
@@ -39,13 +33,14 @@ function DriverForm({ driver, onSubmit, onCancel, loading }: {
   loading?: boolean
 }) {
   const [formData, setFormData] = React.useState<DriverFormData>({
-    name: driver?.name || '',
+    driverCode: driver?.driverCode || '',
+    driverName: driver?.driverName || '',
     phone: driver?.phone || '',
-    email: driver?.email || '',
     licenseNumber: driver?.licenseNumber || '',
     licenseExpiry: driver?.licenseExpiry || '',
     address: driver?.address || '',
     isActive: driver?.isActive ?? true,
+    notes: driver?.notes || '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,15 +52,31 @@ function DriverForm({ driver, onSubmit, onCancel, loading }: {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Name *</label>
+          <label className="text-sm font-medium">Driver Code *</label>
           <input
             type="text"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            value={formData.driverCode}
+            onChange={(e) => setFormData({ ...formData, driverCode: e.target.value.toUpperCase() })}
             required
+            placeholder="e.g., DRV001"
+            disabled={!!driver}
           />
         </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Driver Name *</label>
+          <input
+            type="text"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={formData.driverName}
+            onChange={(e) => setFormData({ ...formData, driverName: e.target.value })}
+            required
+            placeholder="Enter driver name"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Phone *</label>
           <input
@@ -74,21 +85,9 @@ function DriverForm({ driver, onSubmit, onCancel, loading }: {
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
+            placeholder="Enter phone number"
           />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Email</label>
-        <input
-          type="email"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">License Number</label>
           <input
@@ -96,8 +95,12 @@ function DriverForm({ driver, onSubmit, onCancel, loading }: {
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={formData.licenseNumber}
             onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
+            placeholder="SIM number"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">License Expiry</label>
           <input
@@ -115,6 +118,17 @@ function DriverForm({ driver, onSubmit, onCancel, loading }: {
           className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           value={formData.address}
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          placeholder="Enter address"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Notes</label>
+        <textarea
+          className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Additional notes..."
         />
       </div>
 
@@ -153,14 +167,16 @@ export default function DriversPage() {
   }, [setPageTitle, setBreadcrumbs])
 
   // Fetch drivers
-  const { data: drivers, isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['drivers'],
-    queryFn: async () => mockDrivers,
+    queryFn: () => api.getDrivers(),
   })
+
+  const drivers = response?.data || []
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: async (data: DriverFormData) => ({ success: true }),
+    mutationFn: (data: DriverFormData) => api.createDriver(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
       setOpenDialog(false)
@@ -168,7 +184,7 @@ export default function DriversPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<DriverFormData> }) => ({ success: true }),
+    mutationFn: ({ id, data }: { id: string; data: Partial<DriverFormData> }) => api.updateDriver(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
       setOpenDialog(false)
@@ -176,7 +192,7 @@ export default function DriversPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => ({ success: true }),
+    mutationFn: (id: string) => api.deleteDriver(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] })
       setDeleteDialog(false)
@@ -200,11 +216,15 @@ export default function DriversPage() {
   // Columns
   const columns: ColumnDef<Driver>[] = [
     {
-      accessorKey: 'name',
+      accessorKey: 'driverCode',
+      header: ({ column }) => <SortableHeader column={column} title="Code" />,
+    },
+    {
+      accessorKey: 'driverName',
       header: ({ column }) => <SortableHeader column={column} title="Name" />,
       cell: ({ row }) => {
         const driver = row.original
-        const initials = driver.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        const initials = driver.driverName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'D'
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
@@ -212,7 +232,7 @@ export default function DriversPage() {
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{driver.name}</p>
+              <p className="font-medium">{driver.driverName}</p>
               <p className="text-xs text-muted-foreground">{driver.phone}</p>
             </div>
           </div>
@@ -242,17 +262,25 @@ export default function DriversPage() {
       cell: ({ row }) => {
         const expiry = row.getValue('licenseExpiry') as string
         const expired = isLicenseExpired(expiry)
+        const expiring = isLicenseExpiringSoon(expiry)
         return (
-          <span className={expired ? 'text-red-600' : ''}>
+          <span className={expired ? 'text-red-600 font-medium' : expiring ? 'text-yellow-600 font-medium' : ''}>
             {formatDate(expiry) || '-'}
           </span>
         )
       },
     },
     {
-      accessorKey: 'totalDeliveries',
-      header: 'Deliveries',
-      cell: ({ row }) => <span>{row.getValue('totalDeliveries') || 0}</span>,
+      accessorKey: 'address',
+      header: 'Address',
+      cell: ({ row }) => {
+        const address = row.getValue('address') as string
+        return (
+          <span className="text-sm truncate max-w-[200px] block">
+            {address || '-'}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'isActive',
@@ -262,6 +290,11 @@ export default function DriversPage() {
           {row.getValue('isActive') ? 'Active' : 'Inactive'}
         </Badge>
       ),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Created',
+      cell: ({ row }) => formatDateTime(row.getValue('createdAt')),
     },
     {
       id: 'actions',
@@ -319,7 +352,7 @@ export default function DriversPage() {
       <DataTable
         columns={columns}
         data={drivers || []}
-        searchKey="name"
+        searchKey="driverName"
         searchPlaceholder="Search drivers..."
       />
 
@@ -341,7 +374,7 @@ export default function DriversPage() {
         open={deleteDialog}
         onOpenChange={setDeleteDialog}
         title="Delete Driver"
-        description={`Are you sure you want to delete "${selectedDriver?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${selectedDriver?.driverName}"? This action cannot be undone.`}
         variant="destructive"
         confirmText="Delete"
         onConfirm={() => selectedDriver && deleteMutation.mutate(selectedDriver.id)}
