@@ -609,9 +609,15 @@ export default function TransactionsPage() {
                 <p className="font-medium">{formatDateTime(selectedTransaction.createdAt)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={TRANSACTION_STATUS_COLORS[selectedTransaction.status]}>
-                  {TRANSACTION_STATUS_LABELS[selectedTransaction.status]}
+                <p className="text-sm text-muted-foreground">Delivery Status</p>
+                <Badge className={DELIVERY_STATUS_COLORS[selectedTransaction.deliveryStatus] || 'bg-gray-100 text-gray-800'}>
+                  {DELIVERY_STATUS_LABELS[selectedTransaction.deliveryStatus] || selectedTransaction.deliveryStatus}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Payment Status</p>
+                <Badge className={PAYMENT_STATUS_COLORS[selectedTransaction.paymentStatus]}>
+                  {PAYMENT_STATUS_LABELS[selectedTransaction.paymentStatus]}
                 </Badge>
               </div>
             </div>
