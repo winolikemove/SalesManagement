@@ -599,8 +599,8 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
               )}
 
               {/* Quantity and Discount */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-2">
                   <label className="text-xs text-muted-foreground mb-1 block">Qty *</label>
                   <NumberInput
                     value={item.quantity}
@@ -609,7 +609,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                     required
                   />
                 </div>
-                <div>
+                <div className="col-span-3">
                   <label className="text-xs text-muted-foreground mb-1 block">
                     Diskon % {item.hasSpecialPrice && <span className="text-green-600">(Auto)</span>}
                   </label>
@@ -632,7 +632,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                     className={item.hasSpecialPrice ? "bg-green-50 dark:bg-green-950/30" : ""}
                   />
                 </div>
-                <div>
+                <div className="col-span-3">
                   <label className="text-xs text-muted-foreground mb-1 block">Diskon (Rp)</label>
                   <NumberInput
                     value={item.discount}
@@ -653,7 +653,7 @@ function TransactionForm({ transaction, customers, products, customerPrices, sal
                     className={item.hasSpecialPrice ? "bg-green-50 dark:bg-green-950/30" : ""}
                   />
                 </div>
-                <div>
+                <div className="col-span-4">
                   <label className="text-xs text-muted-foreground mb-1 block">Subtotal</label>
                   <div className="h-10 flex items-center font-medium bg-muted/30 rounded-md px-3">
                     {formatCurrency(item.quantity * item.unitPrice - item.discount)}
