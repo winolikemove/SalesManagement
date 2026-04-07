@@ -1742,12 +1742,12 @@ export const mockConfig: Config = {
   LOGO_URL: '',
   BANNER_URL: '',
   TAX_RATE: '11',
-  INVOICE_PREFIX: 'INV',
+  INVOICE_PREFIX: 'SJB',
   DELIVERY_PREFIX: 'SJ',
-  PRODUCT_CATEGORIES: ['Sosis', 'French Fries', 'Ikan Dori', 'Shortplate', 'Nugget', 'Bakso', 'Dimsum', 'Daging Ayam', 'Daging Sapi', 'Seafood', 'Lainnya'],
-  SALES_NAMES: ['Budi Santoso', 'Siti Rahayu', 'Dewi Manager'],
+  PRODUCT_CATEGORIES: ['Mamas', 'Nikmat', 'Cater', 'MKU', 'Nugget', 'Bakso', 'Dimsum', 'Daging Ayam', 'Daging Sapi', 'Seafood', 'Lainnya'],
+  SALES_NAMES: ['Agung W', 'Dedi Harmein'],
   PAYMENT_METHODS: ['Transfer Bank', 'Cash', 'Giro', 'E-Wallet'],
-  VEHICLE_TYPES: ['Truk Box', 'Truk CDE', 'Pickup', 'Tronton'],
+  VEHICLE_TYPES: ['Truk Box', 'Truk CDE', 'Motor', 'Tronton'],
   USER_ROLES: ['SuperAdmin', 'Manager', 'Sales', 'Driver', 'Cashier'],
 }
 
