@@ -315,34 +315,50 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
   const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
   const logoUrl = companySettings.logo
+  const bannerUrl = companySettings.banner
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b px-4">
-        {collapsed ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            {logoUrl ? (
-              <img src={logoUrl} alt={appName} className="h-8 w-8 object-contain rounded" />
-            ) : (
-              appInitial
-            )}
+      {/* Logo & Banner */}
+      <div className="border-b">
+        {/* Banner - Show when not collapsed */}
+        {!collapsed && bannerUrl && (
+          <div className="relative h-24 w-full overflow-hidden bg-muted">
+            <img
+              src={bannerUrl}
+              alt="Company Banner"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg overflow-hidden">
+        )}
+        
+        {/* Logo Section */}
+        <div className="flex h-16 items-center justify-center px-4">
+          {collapsed ? (
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
               {logoUrl ? (
-                <img src={logoUrl} alt={appName} className="h-8 w-8 object-contain" />
+                <img src={logoUrl} alt={appName} className="h-8 w-8 object-contain rounded" />
               ) : (
                 appInitial
               )}
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-sm leading-tight">{appName}</span>
-              <span className="text-xs text-muted-foreground">Sales Management</span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-md overflow-hidden">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={appName} className="h-10 w-10 object-contain" />
+                ) : (
+                  <span className="text-primary font-bold text-lg">{appInitial}</span>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-base leading-tight">{appName}</span>
+                <span className="text-xs text-muted-foreground">Sales Management</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Navigation */}
