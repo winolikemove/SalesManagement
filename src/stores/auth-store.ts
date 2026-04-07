@@ -141,23 +141,26 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
 
         try {
-          // Check if we have stored user from persist
-          const storedState = get()
-          if (storedState.user && storedState.isAuthenticated) {
+          // ALWAYS check tokens first, regardless of persisted state
+          // This prevents infinite loop when persist has stale auth state
+          const tokens = TokenManager.getTokens()
+
+          if (!tokens || TokenManager.isTokenExpired()) {
+            // Clear everything - tokens are invalid
+            TokenManager.clearTokens()
             set({
+              user: null,
+              isAuthenticated: false,
               isLoading: false,
               isInitialized: true,
             })
             return
           }
 
-          const tokens = TokenManager.getTokens()
-
-          if (!tokens || TokenManager.isTokenExpired()) {
-            TokenManager.clearTokens()
+          // Tokens are valid, check if we have stored user from persist
+          const storedState = get()
+          if (storedState.user && storedState.isAuthenticated) {
             set({
-              user: null,
-              isAuthenticated: false,
               isLoading: false,
               isInitialized: true,
             })

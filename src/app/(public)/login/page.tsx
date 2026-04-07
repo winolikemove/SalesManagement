@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login, isLoading, error, setError, isAuthenticated } = useAuthStore()
+  const { login, isLoading, error, setError, isAuthenticated, isInitialized } = useAuthStore()
   const { isMockMode, toggleMockMode } = useAppStore()
 
   const [username, setUsername] = React.useState('')
@@ -32,13 +32,13 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (only after initialization is complete)
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isInitialized && isAuthenticated) {
       const redirect = searchParams.get('redirect') || '/'
       router.push(redirect)
     }
-  }, [isAuthenticated, router, searchParams])
+  }, [isInitialized, isAuthenticated, router, searchParams])
 
   // Clear error on input change
   React.useEffect(() => {
@@ -55,6 +55,30 @@ function LoginForm() {
       setPassword('admin123')
     }
   }, [isMockMode])
+
+  // Show loading while checking auth state
+  if (!isInitialized) {
+    return (
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
+            T
+          </div>
+          <h1 className="text-3xl font-bold">TransMan</h1>
+          <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">Masuk</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
