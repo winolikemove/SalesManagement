@@ -1,4 +1,4 @@
-# TransMan - Sistem Manajemen Transaksi & Penjualan
+# Soejasch Bali (Cab Bandung) - Sistem Manajemen Transaksi & Penjualan
 
 Aplikasi web modern untuk manajemen transaksi dan penjualan dengan backend Google Apps Script. Dilengkapi dengan fitur tracking fulfillment, manajemen harga khusus customer, dan integrasi pengiriman.
 
