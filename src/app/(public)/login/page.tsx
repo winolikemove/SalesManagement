@@ -20,17 +20,24 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useAppStore } from '@/stores/app-store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
+import { APP_DEFAULTS } from '@/lib/constants'
+import { useCompanySettings } from '@/hooks/use-settings'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, isLoading, error, setError, isAuthenticated, isInitialized } = useAuthStore()
   const { isMockMode, toggleMockMode } = useAppStore()
+  const companySettings = useCompanySettings()
 
   const [username, setUsername] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [rememberMe, setRememberMe] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
+
+  // Get app name from settings or fallback to APP_DEFAULTS
+  const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
+  const appInitial = appName.charAt(0).toUpperCase()
 
   // Redirect if already authenticated (only after initialization is complete)
   React.useEffect(() => {
@@ -62,9 +69,9 @@ function LoginForm() {
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-            T
+            {appInitial}
           </div>
-          <h1 className="text-3xl font-bold">TransMan</h1>
+          <h1 className="text-3xl font-bold">{appName}</h1>
           <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
         </div>
         <Card>
@@ -106,9 +113,9 @@ function LoginForm() {
       {/* Logo & Title */}
       <div className="flex flex-col items-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-          T
+          {appInitial}
         </div>
-        <h1 className="text-3xl font-bold">TransMan</h1>
+        <h1 className="text-3xl font-bold">{appName}</h1>
         <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
       </div>
 
@@ -287,13 +294,16 @@ function LoginForm() {
 }
 
 function LoginLoading() {
+  const appName = APP_DEFAULTS.APP_NAME
+  const appInitial = appName.charAt(0).toUpperCase()
+  
   return (
     <div className="w-full max-w-md space-y-8">
       <div className="flex flex-col items-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-          T
+          {appInitial}
         </div>
-        <h1 className="text-3xl font-bold">TransMan</h1>
+        <h1 className="text-3xl font-bold">{appName}</h1>
         <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
       </div>
       <Card>

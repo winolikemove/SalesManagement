@@ -25,7 +25,7 @@ import {
 import { PageHeader, LoadingScreen } from '@/components/shared'
 import { usePageHeader, useAppStore } from '@/stores/app-store'
 import { useIsAdmin } from '@/stores/auth-store'
-import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS } from '@/lib/constants'
+import { DEFAULT_CATEGORIES, DEFAULT_PAYMENT_METHODS, DEFAULT_UNITS, APP_DEFAULTS } from '@/lib/constants'
 import { toast } from 'sonner'
 import { NumberInput } from '@/components/ui/number-input'
 import { api } from '@/lib/api'
@@ -84,22 +84,22 @@ interface Config {
 
 // ============ Default Values ============
 const defaultCompanySettings: CompanySettings = {
-  appName: 'TransMan',
-  companyName: 'PT TransMan Indonesia',
+  appName: APP_DEFAULTS.APP_NAME,
+  companyName: APP_DEFAULTS.COMPANY_NAME,
   logo: '',
   banner: '',
-  address: 'Jl. Sudirman No. 123, Jakarta Selatan 12190',
-  phone: '021-1234567',
-  email: 'info@transman.id',
-  website: 'https://transman.id',
-  taxRate: 11,
+  address: APP_DEFAULTS.COMPANY_ADDRESS,
+  phone: APP_DEFAULTS.COMPANY_PHONE,
+  email: APP_DEFAULTS.COMPANY_EMAIL,
+  website: APP_DEFAULTS.COMPANY_WEBSITE,
+  taxRate: APP_DEFAULTS.TAX_RATE,
 }
 
 const defaultInvoiceSettings: InvoiceSettings = {
-  invoicePrefix: 'INV',
-  invoiceStartingNumber: 1,
-  deliveryNotePrefix: 'DEL',
-  deliveryNoteStartingNumber: 1,
+  invoicePrefix: APP_DEFAULTS.INVOICE_PREFIX,
+  invoiceStartingNumber: APP_DEFAULTS.INVOICE_STARTING_NUMBER,
+  deliveryNotePrefix: APP_DEFAULTS.DELIVERY_PREFIX,
+  deliveryNoteStartingNumber: APP_DEFAULTS.DELIVERY_STARTING_NUMBER,
 }
 
 const defaultCategorySettings: CategorySettings = {

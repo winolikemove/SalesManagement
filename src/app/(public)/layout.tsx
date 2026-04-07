@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
+import { APP_DEFAULTS } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: {
-    default: 'TransMan - Sales Management System',
-    template: '%s | TransMan',
+    default: `${APP_DEFAULTS.APP_NAME} - Sales Management System`,
+    template: `%s | ${APP_DEFAULTS.APP_NAME}`,
   },
   description: 'Modern Sales & Transaction Management System',
 }

@@ -4,6 +4,7 @@
 
 import { useAppStore } from '@/stores/app-store'
 import { 
+  APP_DEFAULTS,
   DEFAULT_CATEGORIES, 
   DEFAULT_PAYMENT_METHODS, 
   DEFAULT_UNITS 
@@ -39,24 +40,24 @@ interface SalesSettings {
   paymentMethods: string[]
 }
 
-// Default values
+// Default values from APP_DEFAULTS constant
 const defaultCompanySettings: CompanySettings = {
-  appName: 'TransMan',
-  companyName: 'PT TransMan Indonesia',
+  appName: APP_DEFAULTS.APP_NAME,
+  companyName: APP_DEFAULTS.COMPANY_NAME,
   logo: '',
   banner: '',
-  address: 'Jl. Sudirman No. 123, Jakarta Selatan 12190',
-  phone: '021-1234567',
-  email: 'info@transman.id',
-  website: 'https://transman.id',
-  taxRate: 11,
+  address: APP_DEFAULTS.COMPANY_ADDRESS,
+  phone: APP_DEFAULTS.COMPANY_PHONE,
+  email: APP_DEFAULTS.COMPANY_EMAIL,
+  website: APP_DEFAULTS.COMPANY_WEBSITE,
+  taxRate: APP_DEFAULTS.TAX_RATE,
 }
 
 const defaultInvoiceSettings: InvoiceSettings = {
-  invoicePrefix: 'INV',
-  invoiceStartingNumber: 1,
-  deliveryNotePrefix: 'DEL',
-  deliveryNoteStartingNumber: 1,
+  invoicePrefix: APP_DEFAULTS.INVOICE_PREFIX,
+  invoiceStartingNumber: APP_DEFAULTS.INVOICE_STARTING_NUMBER,
+  deliveryNotePrefix: APP_DEFAULTS.DELIVERY_PREFIX,
+  deliveryNoteStartingNumber: APP_DEFAULTS.DELIVERY_STARTING_NUMBER,
 }
 
 const defaultCategorySettings: CategorySettings = {

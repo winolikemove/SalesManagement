@@ -43,7 +43,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useIsAdmin } from '@/stores/auth-store'
 import { useAppStore, useSidebar, usePageHeader } from '@/stores/app-store'
 import { useTheme } from 'next-themes'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, APP_DEFAULTS } from '@/lib/constants'
+import { useCompanySettings } from '@/hooks/use-settings'
 import type { User } from '@/types'
 
 // ============ Navigation Items ============
@@ -310,6 +311,9 @@ interface SidebarContentProps {
 
 function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
   const isAdmin = useIsAdmin()
+  const companySettings = useCompanySettings()
+  const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
+  const appInitial = appName.charAt(0).toUpperCase()
 
   return (
     <div className="flex h-full flex-col">
@@ -317,15 +321,15 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
       <div className="flex h-16 items-center justify-center border-b px-4">
         {collapsed ? (
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            T
+            {appInitial}
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-              T
+              {appInitial}
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-lg">TransMan</span>
+              <span className="font-bold text-sm leading-tight">{appName}</span>
               <span className="text-xs text-muted-foreground">Sales Management</span>
             </div>
           </div>

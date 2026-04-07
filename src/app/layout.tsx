@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { APP_DEFAULTS } from "@/lib/constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,12 +18,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "TransMan - Sales Management System",
-    template: "%s | TransMan",
+    default: `${APP_DEFAULTS.APP_NAME} - Sales Management System`,
+    template: `%s | ${APP_DEFAULTS.APP_NAME}`,
   },
   description: "Modern Sales & Transaction Management System built with Next.js 16",
   keywords: ["Sales", "Transaction", "Management", "Next.js", "TypeScript"],
-  authors: [{ name: "TransMan Team" }],
+  authors: [{ name: APP_DEFAULTS.COMPANY_NAME }],
   icons: {
     icon: "/favicon.ico",
   },

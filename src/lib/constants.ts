@@ -2,6 +2,21 @@
 // CONSTANTS FOR TRANSACTION & SALES MANAGEMENT SYSTEM
 // =============================================
 
+// ============ App Defaults ============
+export const APP_DEFAULTS = {
+  APP_NAME: 'Soejasch Bali (Cab Bandung)',
+  COMPANY_NAME: 'PT Soejasch Bali',
+  COMPANY_ADDRESS: 'Jl. Raya Bandung No. 123, Bandung 40123',
+  COMPANY_PHONE: '022-1234567',
+  COMPANY_EMAIL: 'info@soejaschbali.com',
+  COMPANY_WEBSITE: 'https://soejaschbali.com',
+  TAX_RATE: 11,
+  INVOICE_PREFIX: 'INV',
+  DELIVERY_PREFIX: 'DEL',
+  INVOICE_STARTING_NUMBER: 1,
+  DELIVERY_STARTING_NUMBER: 1,
+} as const
+
 // ============ API Configuration ============
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_GAS_API_URL || '',
