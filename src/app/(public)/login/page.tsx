@@ -22,6 +22,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { APP_DEFAULTS } from '@/lib/constants'
 import { api } from '@/lib/api'
+import { getGoogleDriveDirectUrl } from '@/lib/utils'
 
 type PublicConfig = {
   APP_NAME?: string
@@ -46,8 +47,8 @@ function LoginForm() {
   // Get app name and logo from public config or fallback to APP_DEFAULTS
   const appName = publicConfig?.APP_NAME || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
-  const logoUrl = publicConfig?.LOGO_URL
-  const bannerUrl = publicConfig?.BANNER_URL
+  const logoUrl = getGoogleDriveDirectUrl(publicConfig?.LOGO_URL)
+  const bannerUrl = getGoogleDriveDirectUrl(publicConfig?.BANNER_URL)
 
   // Load public config on mount
   React.useEffect(() => {
@@ -142,10 +143,23 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-4 p-4 sm:p-6">
+    <div className="w-full max-w-md space-y-4 p-4 sm:p-6 lg:space-y-6 lg:p-8">
       {/* Mobile Banner - Only shows on small screens */}
       <div className="lg:hidden">
         <MobileBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
+      </div>
+
+      {/* Desktop Logo Header - Only shows on large screens */}
+      <div className="hidden lg:block text-center mb-6">
+        <div className="flex h-20 w-20 mx-auto items-center justify-center rounded-2xl bg-primary/10 mb-4 overflow-hidden">
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="h-16 w-16 object-contain" />
+          ) : (
+            <span className="text-4xl font-bold text-primary">{appInitial}</span>
+          )}
+        </div>
+        <h1 className="text-2xl font-bold text-foreground">{appName}</h1>
+        <p className="text-sm text-muted-foreground mt-1">Masuk untuk melanjutkan</p>
       </div>
 
       {/* Mock Mode Indicator */}
@@ -386,10 +400,10 @@ function MobileBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; log
   )
 }
 
-// Desktop Banner Component - Full split-screen
+// Desktop Banner Component - Full split-screen with modern design
 function DesktopBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
   return (
-    <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary/90 to-primary">
+    <div className="hidden lg:flex lg:w-[55%] xl:w-[60%] relative overflow-hidden">
       {/* Banner Image as Background */}
       {bannerUrl ? (
         <>
@@ -397,50 +411,61 @@ function DesktopBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; lo
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${bannerUrl})` }}
           />
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/60 to-primary/40" />
+          {/* Multi-layer overlay for depth */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-primary/50" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
         </>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
       )}
       
+      {/* Decorative elements */}
+      <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-32 right-20 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
+      <div className="absolute top-1/2 left-10 w-24 h-24 bg-white/5 rounded-full blur-2xl" />
+      
       {/* Content */}
-      <div className="relative z-10 flex flex-col justify-center items-center p-12 text-primary-foreground w-full">
+      <div className="relative z-10 flex flex-col justify-center items-start p-12 xl:p-16 text-white w-full">
         {/* Logo */}
-        <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white/20 backdrop-blur-sm shadow-2xl mb-8 overflow-hidden">
+        <div className="flex h-28 w-28 xl:h-32 xl:w-32 items-center justify-center rounded-3xl bg-white shadow-2xl mb-10 overflow-hidden">
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-20 w-20 object-contain" />
+            <img src={logoUrl} alt={appName} className="h-24 w-24 xl:h-28 xl:w-28 object-contain" />
           ) : (
-            <span className="text-4xl font-bold">{appName.charAt(0).toUpperCase()}</span>
+            <span className="text-5xl font-bold text-primary">{appName.charAt(0).toUpperCase()}</span>
           )}
         </div>
         
         {/* App Name */}
-        <h1 className="text-4xl font-bold text-center mb-4 drop-shadow-lg">{appName}</h1>
+        <h1 className="text-4xl xl:text-5xl font-bold mb-4 drop-shadow-lg tracking-tight">{appName}</h1>
         
         {/* Tagline */}
-        <p className="text-xl text-white/90 text-center mb-8 drop-shadow">
-          Sistem Manajemen Transaksi & Penjualan
+        <p className="text-lg xl:text-xl text-white/90 mb-12 max-w-md">
+          Sistem Manajemen Transaksi & Penjualan Terpadu
         </p>
         
-        {/* Features */}
-        <div className="grid grid-cols-2 gap-4 max-w-md">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold">Dashboard</div>
-            <div className="text-sm text-white/80">Real-time Analytics</div>
+        {/* Features Grid */}
+        <div className="grid grid-cols-2 gap-4 max-w-lg">
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
+            <div className="text-xl font-semibold mb-1">📊 Dashboard</div>
+            <div className="text-sm text-white/70">Real-time Analytics</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold">Invoice</div>
-            <div className="text-sm text-white/80">Manajemen Transaksi</div>
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
+            <div className="text-xl font-semibold mb-1">📝 Invoice</div>
+            <div className="text-sm text-white/70">Manajemen Transaksi</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold">Delivery</div>
-            <div className="text-sm text-white/80">Tracking Pengiriman</div>
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
+            <div className="text-xl font-semibold mb-1">🚚 Delivery</div>
+            <div className="text-sm text-white/70">Tracking Pengiriman</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold">Reports</div>
-            <div className="text-sm text-white/80">Laporan Lengkap</div>
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
+            <div className="text-xl font-semibold mb-1">📈 Reports</div>
+            <div className="text-sm text-white/70">Laporan Lengkap</div>
           </div>
+        </div>
+        
+        {/* Footer text */}
+        <div className="absolute bottom-8 left-12 xl:left-16 text-white/50 text-sm">
+          © {new Date().getFullYear()} {appName}. All rights reserved.
         </div>
       </div>
     </div>
@@ -460,8 +485,8 @@ export default function LoginPage() {
   }, [])
   
   const appName = publicConfig?.APP_NAME || APP_DEFAULTS.APP_NAME
-  const logoUrl = publicConfig?.LOGO_URL
-  const bannerUrl = publicConfig?.BANNER_URL
+  const logoUrl = getGoogleDriveDirectUrl(publicConfig?.LOGO_URL)
+  const bannerUrl = getGoogleDriveDirectUrl(publicConfig?.BANNER_URL)
   
   return (
     <div className="min-h-screen flex">
@@ -469,7 +494,13 @@ export default function LoginPage() {
       <DesktopBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
       
       {/* Login Form Section - Right side (desktop) / Full width (mobile) */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-background to-muted overflow-y-auto min-h-screen">
+      <div className="w-full lg:w-[45%] xl:w-[40%] flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 overflow-y-auto min-h-screen">
+        {/* Decorative background pattern for desktop */}
+        <div className="hidden lg:block absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-60 h-60 bg-primary/3 rounded-full blur-3xl" />
+        </div>
+        
         <Suspense fallback={<LoginLoading />}>
           <LoginForm />
         </Suspense>

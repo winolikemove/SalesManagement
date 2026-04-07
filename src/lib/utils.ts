@@ -361,6 +361,63 @@ export function parseQueryString(queryString: string): Record<string, string> {
   return params
 }
 
+// ============ Google Drive URL Utilities ============
+/**
+ * Convert Google Drive URLs to direct viewable image URLs
+ * Supports multiple Google Drive URL formats:
+ * - https://drive.google.com/file/d/{FILE_ID}/view
+ * - https://drive.google.com/file/d/{FILE_ID}/view?usp=sharing
+ * - https://drive.google.com/open?id={FILE_ID}
+ * - https://drive.google.com/uc?export=view&id={FILE_ID} (already direct)
+ * - https://drive.google.com/uc?id={FILE_ID}
+ */
+export function getGoogleDriveDirectUrl(url: string | undefined | null): string | null {
+  if (!url) return null
+  
+  // Trim the URL
+  const trimmedUrl = url.trim()
+  if (!trimmedUrl) return null
+  
+  // If it's not a Google Drive URL, return as-is (could be a regular image URL)
+  if (!trimmedUrl.includes('drive.google.com')) {
+    return trimmedUrl
+  }
+  
+  // Pattern 1: /file/d/{FILE_ID}/view or /file/d/{FILE_ID}
+  const fileMatch = trimmedUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
+  if (fileMatch) {
+    return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`
+  }
+  
+  // Pattern 2: /open?id={FILE_ID}
+  const openMatch = trimmedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+  if (openMatch) {
+    return `https://drive.google.com/uc?export=view&id=${openMatch[1]}`
+  }
+  
+  // Pattern 3: Already in uc format with export=view
+  if (trimmedUrl.includes('uc?export=view') || trimmedUrl.includes('uc?export=download')) {
+    return trimmedUrl
+  }
+  
+  // Pattern 4: uc format without export parameter
+  const ucMatch = trimmedUrl.match(/\/uc\?.*id=([a-zA-Z0-9_-]+)/)
+  if (ucMatch) {
+    return `https://drive.google.com/uc?export=view&id=${ucMatch[1]}`
+  }
+  
+  // If we can't parse it, return as-is and let the browser try to load it
+  return trimmedUrl
+}
+
+/**
+ * Check if a URL is a Google Drive URL
+ */
+export function isGoogleDriveUrl(url: string | undefined | null): boolean {
+  if (!url) return false
+  return url.includes('drive.google.com')
+}
+
 // ============ Color Utilities ============
 export function getContrastColor(hexColor: string): 'black' | 'white' {
   const hex = hexColor.replace('#', '')

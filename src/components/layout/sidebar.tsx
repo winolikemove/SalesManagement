@@ -45,6 +45,7 @@ import { useAppStore, useSidebar, usePageHeader } from '@/stores/app-store'
 import { useTheme } from 'next-themes'
 import { ROLE_LABELS, APP_DEFAULTS } from '@/lib/constants'
 import { useCompanySettings } from '@/hooks/use-settings'
+import { getGoogleDriveDirectUrl } from '@/lib/utils'
 import type { User } from '@/types'
 
 // ============ Navigation Items ============
@@ -314,8 +315,8 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
   const companySettings = useCompanySettings()
   const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
-  const logoUrl = companySettings.logo
-  const bannerUrl = companySettings.banner
+  const logoUrl = getGoogleDriveDirectUrl(companySettings.logo)
+  const bannerUrl = getGoogleDriveDirectUrl(companySettings.banner)
 
   return (
     <div className="flex h-full flex-col">

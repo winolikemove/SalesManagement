@@ -333,9 +333,9 @@ export default function SettingsPage() {
       return
     }
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 5MB')
+    // Validate file size (max 2MB - matches backend limit)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 2MB')
       return
     }
     
@@ -604,7 +604,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">
-                      Ukuran optimal: 200x200 pixel<br />Format: PNG, JPG (Max 5MB)
+                      Ukuran optimal: 200x200 pixel<br />Format: PNG, JPG (Max 2MB)
                     </p>
                   </div>
                   
@@ -699,7 +699,7 @@ export default function SettingsPage() {
                   </div>
                   
                   <p className="text-xs text-muted-foreground">
-                    Ukuran optimal: 1200x400 pixel • Format: PNG, JPG • Max 5MB
+                    Ukuran optimal: 1200x400 pixel • Format: PNG, JPG • Max 2MB
                   </p>
                   
                   {/* Upload Options */}

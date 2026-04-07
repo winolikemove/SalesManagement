@@ -5,7 +5,7 @@
 const CONFIG = {
   SPREADSHEET_ID: PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'),
   DRIVE_FOLDER_ID: PropertiesService.getScriptProperties().getProperty('DRIVE_FOLDER_ID'),
-  MAX_FILE_SIZE: 1048576,
+  MAX_FILE_SIZE: 2097152, // 2MB
   CACHE_DURATION: 300,
   JWT_SECRET: PropertiesService.getScriptProperties().getProperty('JWT_SECRET') || 'your-secret-key-min-32-chars-long',
   SESSION_DURATION: 86400,
@@ -1247,7 +1247,7 @@ const FileService = {
       if (decoded.length > CONFIG.MAX_FILE_SIZE) {
         return {
           success: false,
-          error: 'File size exceeds maximum limit of 1MB',
+          error: 'File size exceeds maximum limit of 2MB',
           code: 'FILE_TOO_LARGE'
         };
       }
@@ -1282,7 +1282,7 @@ const FileService = {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       
       const fileId = file.getId();
-      const fileUrl = `[drive.google.com](https://drive.google.com/uc?export=view&id=${fileId})`;
+      const fileUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
       
       return {
         success: true,
@@ -1290,6 +1290,7 @@ const FileService = {
           fileId: fileId,
           fileName: uniqueFileName,
           fileUrl: fileUrl,
+          url: fileUrl,
           mimeType: data.mimeType,
           size: decoded.length
         }
