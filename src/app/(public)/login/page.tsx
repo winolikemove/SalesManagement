@@ -90,7 +90,12 @@ function LoginForm() {
   // Show loading while checking auth state or loading config
   if (!isInitialized || !configLoaded) {
     return (
-      <div className="w-full max-w-md space-y-8 p-6">
+      <div className="w-full max-w-md space-y-6 p-6">
+        {/* Mobile Banner - Loading State */}
+        <div className="lg:hidden">
+          <MobileBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
+        </div>
+        
         <div className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden">
             {logoUrl ? (
@@ -137,18 +142,10 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-6 p-6">
-      {/* Logo & Title */}
-      <div className="flex flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden shadow-lg">
-          {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-12 w-12 object-contain" />
-          ) : (
-            appInitial
-          )}
-        </div>
-        <h1 className="text-2xl font-bold">{appName}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Sistem Manajemen Transaksi & Penjualan</p>
+    <div className="w-full max-w-md space-y-4 p-4 sm:p-6">
+      {/* Mobile Banner - Only shows on small screens */}
+      <div className="lg:hidden">
+        <MobileBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
       </div>
 
       {/* Mock Mode Indicator */}
@@ -350,8 +347,47 @@ function LoginLoading() {
   )
 }
 
-// Banner Component for desktop
-function BannerSection({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
+// Mobile Banner Component - Compact version for mobile
+function MobileBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/90 to-primary">
+      {/* Banner Image as Background */}
+      {bannerUrl ? (
+        <>
+          <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${bannerUrl})` }}
+          />
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/70 via-primary/50 to-primary/30" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
+      )}
+      
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center p-6 text-primary-foreground">
+        {/* Logo & App Name */}
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shadow-lg overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="h-10 w-10 object-contain" />
+            ) : (
+              <span className="text-2xl font-bold">{appName.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold drop-shadow">{appName}</h1>
+            <p className="text-xs text-white/80">Sales Management</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Desktop Banner Component - Full split-screen
+function DesktopBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
   return (
     <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary/90 to-primary">
       {/* Banner Image as Background */}
@@ -429,11 +465,11 @@ export default function LoginPage() {
   
   return (
     <div className="min-h-screen flex">
-      {/* Banner Section - Left side (Desktop only) */}
-      <BannerSection bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
+      {/* Desktop Banner Section - Left side */}
+      <DesktopBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
       
-      {/* Login Form Section - Right side */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-background to-muted overflow-y-auto">
+      {/* Login Form Section - Right side (desktop) / Full width (mobile) */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-background to-muted overflow-y-auto min-h-screen">
         <Suspense fallback={<LoginLoading />}>
           <LoginForm />
         </Suspense>
