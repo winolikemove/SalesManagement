@@ -180,10 +180,10 @@ Aplikasi mendukung **Mock Mode** untuk development tanpa backend GAS:
 
 ```bash
 # Build
-docker build -t transman .
+docker build -t soejasch-bali-app .
 
 # Run
-docker run -p 3000:3000 transman
+docker run -p 3000:3000 soejasch-bali-app
 ```
 
 ## 🏃 Menjalankan Lokal
