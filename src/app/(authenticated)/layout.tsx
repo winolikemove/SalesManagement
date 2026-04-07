@@ -7,6 +7,40 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useAppStore } from '@/stores/app-store'
 import { Sidebar, Navbar } from '@/components/layout/sidebar'
 import { api } from '@/lib/api'
+import { APP_DEFAULTS, DEFAULT_CATEGORIES, DEFAULT_UNITS, DEFAULT_PAYMENT_METHODS } from '@/lib/constants'
+
+// Transform flat config to nested structure for app store
+function transformConfigToNested(flatConfig: Record<string, unknown>) {
+  return {
+    companySettings: {
+      appName: (flatConfig.APP_NAME as string) || APP_DEFAULTS.APP_NAME,
+      companyName: (flatConfig.COMPANY_NAME as string) || APP_DEFAULTS.COMPANY_NAME,
+      logo: (flatConfig.LOGO_URL as string) || '',
+      banner: (flatConfig.BANNER_URL as string) || '',
+      address: (flatConfig.COMPANY_ADDRESS as string) || APP_DEFAULTS.COMPANY_ADDRESS,
+      phone: (flatConfig.COMPANY_PHONE as string) || APP_DEFAULTS.COMPANY_PHONE,
+      email: (flatConfig.COMPANY_EMAIL as string) || APP_DEFAULTS.COMPANY_EMAIL,
+      website: (flatConfig.WEBSITE as string) || APP_DEFAULTS.COMPANY_WEBSITE,
+      taxRate: flatConfig.TAX_RATE ? parseFloat(String(flatConfig.TAX_RATE)) : APP_DEFAULTS.TAX_RATE,
+    },
+    invoiceSettings: {
+      invoicePrefix: (flatConfig.INVOICE_PREFIX as string) || APP_DEFAULTS.INVOICE_PREFIX,
+      invoiceStartingNumber: (flatConfig.INVOICE_STARTING_NUMBER as number) || APP_DEFAULTS.INVOICE_STARTING_NUMBER,
+      deliveryNotePrefix: (flatConfig.DELIVERY_PREFIX as string) || APP_DEFAULTS.DELIVERY_PREFIX,
+      deliveryNoteStartingNumber: (flatConfig.DELIVERY_STARTING_NUMBER as number) || APP_DEFAULTS.DELIVERY_STARTING_NUMBER,
+    },
+    categorySettings: {
+      categories: (flatConfig.PRODUCT_CATEGORIES as string[]) || DEFAULT_CATEGORIES,
+      units: (flatConfig.PRODUCT_UNITS as string[]) || DEFAULT_UNITS,
+    },
+    salesSettings: {
+      salesNames: (flatConfig.SALES_NAMES as string[]) || ['Admin', 'Sales 1', 'Sales 2', 'Sales 3'],
+      paymentMethods: (flatConfig.PAYMENT_METHODS as string[]) || DEFAULT_PAYMENT_METHODS,
+    },
+    // Keep original flat config for backward compatibility
+    ...flatConfig,
+  }
+}
 
 // ============ Auth Loading Screen ============
 function AuthLoadingScreen() {
@@ -51,12 +85,14 @@ export default function AuthenticatedLayout({
     }
   }, [mounted, isInitialized, initialize])
 
-  // Load config on mount and store in appConfig
+  // Load config on mount and store in appConfig (transformed to nested structure)
   React.useEffect(() => {
     if (mounted && isAuthenticated && !configLoaded) {
       api.getAllConfig().then((response) => {
         if (response.success) {
-          setAppConfig(response.data as Record<string, unknown>)
+          // Transform flat config to nested structure
+          const nestedConfig = transformConfigToNested(response.data as Record<string, unknown>)
+          setAppConfig(nestedConfig)
         }
         setConfigLoaded(true)
       }).catch(() => {

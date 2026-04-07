@@ -517,23 +517,65 @@ export default function SettingsPage() {
 
               <Separator />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs md:text-sm">Logo</Label>
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="h-12 w-12 md:h-16 md:w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      {companySettings.logo ? (
-                        <img src={companySettings.logo} alt="Logo" className="h-10 w-10 md:h-14 md:w-14 object-contain" />
-                      ) : (
-                        <span className="text-lg md:text-2xl font-bold text-muted-foreground">T</span>
-                      )}
+              {/* Logo Upload */}
+              <div className="space-y-3">
+                <Label className="text-xs md:text-sm">Logo Perusahaan</Label>
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="h-20 w-20 md:h-24 md:w-24 rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
+                    {companySettings.logo ? (
+                      <img src={companySettings.logo} alt="Logo" className="h-full w-full object-contain" />
+                    ) : (
+                      <span className="text-2xl md:text-3xl font-bold text-muted-foreground">
+                        {companySettings.appName?.charAt(0) || 'T'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="URL Logo (https://...)"
+                        value={companySettings.logo || ''}
+                        onChange={(e) => updateCompanyField('logo', e.target.value)}
+                        className="text-sm"
+                      />
                     </div>
-                    <Button variant="outline" size="sm" className="text-xs md:text-sm">
-                      <Upload className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                      Upload
-                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Masukkan URL gambar logo. Ukuran optimal: 200x200 pixel, format PNG/JPG.
+                    </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Banner Upload */}
+              <div className="space-y-3">
+                <Label className="text-xs md:text-sm">Banner Perusahaan</Label>
+                <div className="flex flex-col gap-3">
+                  <div className="h-32 md:h-40 w-full rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
+                    {companySettings.banner ? (
+                      <img src={companySettings.banner} alt="Banner" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Upload className="h-8 w-8" />
+                        <span className="text-xs">Belum ada banner</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      placeholder="URL Banner (https://...)"
+                      value={companySettings.banner || ''}
+                      onChange={(e) => updateCompanyField('banner', e.target.value)}
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Masukkan URL gambar banner. Ukuran optimal: 1200x400 pixel, format PNG/JPG.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tax Rate */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="taxRate" className="text-xs md:text-sm">Tarif Pajak (%)</Label>
                   <NumberInput
