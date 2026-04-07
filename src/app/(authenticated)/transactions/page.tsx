@@ -1113,6 +1113,9 @@ export default function TransactionsPage() {
 
   // Global search state
   const [globalSearch, setGlobalSearch] = React.useState('')
+  
+  // Qty detail dialog state
+  const [qtyDetailDialog, setQtyDetailDialog] = React.useState(false)
 
   React.useEffect(() => {
     setPageTitle('Transactions')
@@ -1201,6 +1204,54 @@ export default function TransactionsPage() {
       )
     })
   }, [transactionItems, globalSearch])
+
+  // Calculate quantity summary from filtered items
+  const qtySummary = React.useMemo(() => {
+    // Group by product
+    const productMap = new Map<string, {
+      productId: string
+      productCode: string
+      productName: string
+      unitName: string
+      kgName: string
+      totalQtyUnit: number
+      totalQtyKg: number
+      invoiceCount: Set<string>
+    }>()
+
+    filteredItems.forEach(item => {
+      const key = item.productId
+      if (!productMap.has(key)) {
+        productMap.set(key, {
+          productId: item.productId,
+          productCode: item.productCode || '',
+          productName: item.productName || '',
+          unitName: item.unitName || 'Unit',
+          kgName: item.kgName || 'Kg',
+          totalQtyUnit: 0,
+          totalQtyKg: 0,
+          invoiceCount: new Set(),
+        })
+      }
+      const entry = productMap.get(key)!
+      entry.totalQtyUnit += item.qtyOrderUnit || 0
+      entry.totalQtyKg += item.qtyOrderKg || 0
+      entry.invoiceCount.add(item.invoiceNumber)
+    })
+
+    const products = Array.from(productMap.values()).map(p => ({
+      ...p,
+      invoiceCount: p.invoiceCount.size,
+    }))
+
+    return {
+      totalItems: filteredItems.length,
+      totalQtyUnit: products.reduce((sum, p) => sum + p.totalQtyUnit, 0),
+      totalQtyKg: products.reduce((sum, p) => sum + p.totalQtyKg, 0),
+      uniqueProducts: products.length,
+      products: products.sort((a, b) => b.totalQtyUnit - a.totalQtyUnit),
+    }
+  }, [filteredItems])
 
   // Compute fulfillment summary - group unfulfilled/partial items by customer
   const fulfillmentSummary = React.useMemo(() => {
@@ -1647,6 +1698,45 @@ export default function TransactionsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Quantity Summary Card */}
+        {qtySummary.totalItems > 0 && (
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
+            onClick={() => setQtyDetailDialog(true)}
+          >
+            <CardContent className="p-2 sm:p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                    <Package className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Total Qty (Tabel)</p>
+                    <div className="flex items-baseline gap-1 sm:gap-2">
+                      <span className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {qtySummary.totalQtyUnit.toLocaleString()}
+                      </span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {qtySummary.products[0]?.unitName || 'Unit'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Total Berat</p>
+                  <p className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400">
+                    {qtySummary.totalQtyKg.toLocaleString(undefined, { maximumFractionDigits: 2 })} Kg
+                  </p>
+                </div>
+              </div>
+              <div className="mt-1 sm:mt-2 flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
+                <span>{qtySummary.uniqueProducts} jenis barang dari {qtySummary.totalItems} item</span>
+                <span className="text-blue-600 dark:text-blue-400 font-medium">Klik untuk detail →</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Global Search */}
@@ -1974,6 +2064,86 @@ export default function TransactionsPage() {
               </div>
             )
           })()}
+        </div>
+      </ModalForm>
+
+      {/* Quantity Detail Dialog */}
+      <ModalForm
+        open={qtyDetailDialog}
+        onOpenChange={setQtyDetailDialog}
+        title="Detail Total Quantity"
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          {/* Summary Header */}
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 sm:p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Item</p>
+                <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {qtySummary.totalItems}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Jenis Barang</p>
+                <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {qtySummary.uniqueProducts}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Qty</p>
+                <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {qtySummary.totalQtyUnit.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Berat</p>
+                <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                  {qtySummary.totalQtyKg.toLocaleString(undefined, { maximumFractionDigits: 2 })} Kg
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Product List */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">Detail per Barang:</p>
+            <div className="max-h-[50vh] overflow-y-auto space-y-2">
+              {qtySummary.products.map((product, idx) => (
+                <div
+                  key={product.productId}
+                  className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-lg"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-mono">{product.productCode}</span>
+                      {product.invoiceCount > 1 && (
+                        <Badge variant="outline" className="text-[10px] h-4">
+                          {product.invoiceCount} invoice
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="font-medium text-sm truncate">{product.productName}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="font-bold text-blue-600 dark:text-blue-400">
+                      {product.totalQtyUnit.toLocaleString()} {product.unitName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {product.totalQtyKg.toLocaleString(undefined, { maximumFractionDigits: 2 })} {product.kgName}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Close Button */}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setQtyDetailDialog(false)}>
+              Tutup
+            </Button>
+          </div>
         </div>
       </ModalForm>
     </div>
