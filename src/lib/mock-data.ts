@@ -1733,12 +1733,12 @@ export const mockTargets: Target[] = [
 // CONFIG
 // =============================================
 export const mockConfig: Config = {
-  APP_NAME: 'FrozenFood',
+  APP_NAME: 'Soejasch Bandung',
   APP_VERSION: '1.0.0',
-  COMPANY_NAME: 'PT. Frozen Food Indonesia',
-  COMPANY_ADDRESS: 'Jl. Raya Industri No. 88, Bekasi, Jawa Barat 17530',
+  COMPANY_NAME: 'PT. Soejasch Bali',
+  COMPANY_ADDRESS: 'JL. Martanagara Jl. Turangga No.22, Turangga, Kec. Lengkong, Kota Bandung, Jawa Barat 40264',
   COMPANY_PHONE: '021-12345678',
-  COMPANY_EMAIL: 'info@frozenfood.id',
+  COMPANY_EMAIL: 'bandung@seojasch.com',
   LOGO_URL: '',
   BANNER_URL: '',
   TAX_RATE: '11',
