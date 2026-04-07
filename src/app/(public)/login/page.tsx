@@ -21,23 +21,46 @@ import { useAppStore } from '@/stores/app-store'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { APP_DEFAULTS } from '@/lib/constants'
-import { useCompanySettings } from '@/hooks/use-settings'
+import { api } from '@/lib/api'
+
+type PublicConfig = {
+  APP_NAME?: string
+  COMPANY_NAME?: string
+  LOGO_URL?: string
+  BANNER_URL?: string
+}
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login, isLoading, error, setError, isAuthenticated, isInitialized } = useAuthStore()
   const { isMockMode, toggleMockMode } = useAppStore()
-  const companySettings = useCompanySettings()
 
   const [username, setUsername] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [rememberMe, setRememberMe] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
+  const [publicConfig, setPublicConfig] = React.useState<PublicConfig | null>(null)
+  const [configLoaded, setConfigLoaded] = React.useState(false)
 
-  // Get app name from settings or fallback to APP_DEFAULTS
-  const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
+  // Get app name and logo from public config or fallback to APP_DEFAULTS
+  const appName = publicConfig?.APP_NAME || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
+  const logoUrl = publicConfig?.LOGO_URL
+
+  // Load public config on mount
+  React.useEffect(() => {
+    if (!configLoaded) {
+      api.getPublicConfig().then((response) => {
+        if (response.success) {
+          setPublicConfig(response.data as PublicConfig)
+        }
+        setConfigLoaded(true)
+      }).catch(() => {
+        setConfigLoaded(true)
+      })
+    }
+  }, [configLoaded])
 
   // Redirect if already authenticated (only after initialization is complete)
   React.useEffect(() => {
@@ -63,13 +86,17 @@ function LoginForm() {
     }
   }, [isMockMode])
 
-  // Show loading while checking auth state
-  if (!isInitialized) {
+  // Show loading while checking auth state or loading config
+  if (!isInitialized || !configLoaded) {
     return (
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-            {appInitial}
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="h-12 w-12 object-contain" />
+            ) : (
+              appInitial
+            )}
           </div>
           <h1 className="text-3xl font-bold">{appName}</h1>
           <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
@@ -112,8 +139,12 @@ function LoginForm() {
     <div className="w-full max-w-md space-y-8">
       {/* Logo & Title */}
       <div className="flex flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-          {appInitial}
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden">
+          {logoUrl ? (
+            <img src={logoUrl} alt={appName} className="h-12 w-12 object-contain" />
+          ) : (
+            appInitial
+          )}
         </div>
         <h1 className="text-3xl font-bold">{appName}</h1>
         <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>

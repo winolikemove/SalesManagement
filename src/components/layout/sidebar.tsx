@@ -314,6 +314,7 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
   const companySettings = useCompanySettings()
   const appName = companySettings.appName || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
+  const logoUrl = companySettings.logo
 
   return (
     <div className="flex h-full flex-col">
@@ -321,12 +322,20 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
       <div className="flex h-16 items-center justify-center border-b px-4">
         {collapsed ? (
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            {appInitial}
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="h-8 w-8 object-contain rounded" />
+            ) : (
+              appInitial
+            )}
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-              {appInitial}
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg overflow-hidden">
+              {logoUrl ? (
+                <img src={logoUrl} alt={appName} className="h-8 w-8 object-contain" />
+              ) : (
+                appInitial
+              )}
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-sm leading-tight">{appName}</span>

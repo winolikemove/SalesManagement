@@ -4,7 +4,9 @@ import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/stores/auth-store'
+import { useAppStore } from '@/stores/app-store'
 import { Sidebar, Navbar } from '@/components/layout/sidebar'
+import { api } from '@/lib/api'
 
 // ============ Auth Loading Screen ============
 function AuthLoadingScreen() {
@@ -33,7 +35,9 @@ export default function AuthenticatedLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isInitialized, initialize } = useAuthStore()
+  const { appConfig, setAppConfig } = useAppStore()
   const [mounted, setMounted] = React.useState(false)
+  const [configLoaded, setConfigLoaded] = React.useState(false)
 
   // Handle mount
   React.useEffect(() => {
@@ -47,6 +51,20 @@ export default function AuthenticatedLayout({
     }
   }, [mounted, isInitialized, initialize])
 
+  // Load config on mount and store in appConfig
+  React.useEffect(() => {
+    if (mounted && isAuthenticated && !configLoaded) {
+      api.getAllConfig().then((response) => {
+        if (response.success) {
+          setAppConfig(response.data as Record<string, unknown>)
+        }
+        setConfigLoaded(true)
+      }).catch(() => {
+        setConfigLoaded(true)
+      })
+    }
+  }, [mounted, isAuthenticated, configLoaded, setAppConfig])
+
   // Handle redirect
   React.useEffect(() => {
     if (mounted && isInitialized && !isAuthenticated) {
@@ -55,8 +73,8 @@ export default function AuthenticatedLayout({
     }
   }, [mounted, isInitialized, isAuthenticated, router, pathname])
 
-  // Show loading screen while mounting or initializing
-  if (!mounted || !isInitialized) {
+  // Show loading screen while mounting, initializing, or loading config
+  if (!mounted || !isInitialized || (isAuthenticated && !configLoaded)) {
     return <AuthLoadingScreen />
   }
 
