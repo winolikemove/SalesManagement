@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,11 +18,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle, Eye, EyeOff, Loader2, Info, TestTube } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useAppStore } from '@/stores/app-store'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { APP_DEFAULTS } from '@/lib/constants'
 import { api } from '@/lib/api'
-import { getGoogleDriveDirectUrl } from '@/lib/utils'
 
 type PublicConfig = {
   APP_NAME?: string
@@ -30,20 +30,9 @@ type PublicConfig = {
   BANNER_URL?: string
 }
 
-// Custom hook to safely get search params without causing hydration issues
-function useSafeSearchParams() {
-  const [searchParams, setSearchParams] = React.useState<URLSearchParams | null>(null)
-  
-  React.useEffect(() => {
-    setSearchParams(new URLSearchParams(window.location.search))
-  }, [])
-  
-  return searchParams
-}
-
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSafeSearchParams()
+  const searchParams = useSearchParams()
   const { login, isLoading, error, setError, isAuthenticated, isInitialized } = useAuthStore()
   const { isMockMode, toggleMockMode } = useAppStore()
 
@@ -57,8 +46,7 @@ function LoginForm() {
   // Get app name and logo from public config or fallback to APP_DEFAULTS
   const appName = publicConfig?.APP_NAME || APP_DEFAULTS.APP_NAME
   const appInitial = appName.charAt(0).toUpperCase()
-  const logoUrl = getGoogleDriveDirectUrl(publicConfig?.LOGO_URL)
-  const bannerUrl = getGoogleDriveDirectUrl(publicConfig?.BANNER_URL)
+  const logoUrl = publicConfig?.LOGO_URL
 
   // Load public config on mount
   React.useEffect(() => {
@@ -76,7 +64,7 @@ function LoginForm() {
 
   // Redirect if already authenticated (only after initialization is complete)
   React.useEffect(() => {
-    if (isInitialized && isAuthenticated && searchParams) {
+    if (isInitialized && isAuthenticated) {
       const redirect = searchParams.get('redirect') || '/'
       router.push(redirect)
     }
@@ -101,12 +89,7 @@ function LoginForm() {
   // Show loading while checking auth state or loading config
   if (!isInitialized || !configLoaded) {
     return (
-      <div className="w-full max-w-md space-y-6 p-6">
-        {/* Mobile Banner - Loading State */}
-        <div className="lg:hidden">
-          <MobileBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
-        </div>
-        
+      <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden">
             {logoUrl ? (
@@ -142,7 +125,7 @@ function LoginForm() {
     const result = await login({ username, password, rememberMe })
 
     if (result.success) {
-      const redirect = searchParams?.get('redirect') || '/'
+      const redirect = searchParams.get('redirect') || '/'
       router.push(redirect)
     }
   }
@@ -153,23 +136,18 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md space-y-4 p-4 sm:p-6 lg:space-y-6 lg:p-8">
-      {/* Mobile Banner - Only shows on small screens */}
-      <div className="lg:hidden">
-        <MobileBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
-      </div>
-
-      {/* Desktop Logo Header - Only shows on large screens */}
-      <div className="hidden lg:block text-center mb-6">
-        <div className="flex h-20 w-20 mx-auto items-center justify-center rounded-2xl bg-primary/10 mb-4 overflow-hidden">
+    <div className="w-full max-w-md space-y-8">
+      {/* Logo & Title */}
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4 overflow-hidden">
           {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-16 w-16 object-contain" />
+            <img src={logoUrl} alt={appName} className="h-12 w-12 object-contain" />
           ) : (
-            <span className="text-4xl font-bold text-primary">{appInitial}</span>
+            appInitial
           )}
         </div>
-        <h1 className="text-2xl font-bold text-foreground">{appName}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Masuk untuk melanjutkan</p>
+        <h1 className="text-3xl font-bold">{appName}</h1>
+        <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
       </div>
 
       {/* Mock Mode Indicator */}
@@ -177,30 +155,30 @@ function LoginForm() {
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
           <TestTube className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertTitle className="text-blue-800 dark:text-blue-200">Mode Demo Aktif</AlertTitle>
-          <AlertDescription className="text-blue-700 dark:text-blue-300 text-sm">
-            Kredensial demo sudah terisi otomatis.
+          <AlertDescription className="text-blue-700 dark:text-blue-300">
+            Anda sedang menggunakan data dummy untuk testing. Kredensial demo sudah terisi otomatis.
             <Button
               variant="link"
               className="p-0 h-auto ml-1 text-blue-600 dark:text-blue-400"
               onClick={fillDemoCredentials}
             >
-              Reset
+              Reset kredensial
             </Button>
           </AlertDescription>
         </Alert>
       )}
 
       {/* Login Card */}
-      <Card className="shadow-xl">
-        <CardHeader className="space-y-1 pb-4">
+      <Card>
+        <CardHeader className="space-y-1">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl">Masuk</CardTitle>
-              <CardDescription className="text-sm">
+              <CardTitle className="text-2xl">Masuk</CardTitle>
+              <CardDescription>
                 Masukkan kredensial untuk mengakses akun Anda
               </CardDescription>
             </div>
-            <Badge variant={isMockMode ? "default" : "secondary"} className="text-xs">
+            <Badge variant={isMockMode ? "default" : "secondary"}>
               {isMockMode ? 'Demo' : 'Live'}
             </Badge>
           </div>
@@ -218,11 +196,11 @@ function LoginForm() {
 
             {/* Demo Credentials Info (Mock Mode Only) */}
             {isMockMode && (
-              <Alert className="py-3">
+              <Alert>
                 <Info className="h-4 w-4" />
-                <AlertTitle className="text-sm">Demo Credentials</AlertTitle>
+                <AlertTitle>Demo Credentials</AlertTitle>
                 <AlertDescription>
-                  <div className="mt-1 text-xs">
+                  <div className="mt-2 text-sm">
                     <p><strong>Username:</strong> admin</p>
                     <p><strong>Password:</strong> admin123</p>
                   </div>
@@ -232,7 +210,7 @@ function LoginForm() {
 
             {/* Username */}
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm">Username</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -246,7 +224,7 @@ function LoginForm() {
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm">Password</Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -279,23 +257,25 @@ function LoginForm() {
             </div>
 
             {/* Remember Me */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="remember"
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                disabled={isLoading}
-              />
-              <Label
-                htmlFor="remember"
-                className="text-sm font-normal cursor-pointer"
-              >
-                Ingat saya
-              </Label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  disabled={isLoading}
+                />
+                <Label
+                  htmlFor="remember"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Ingat saya
+                </Label>
+              </div>
             </div>
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-4 pt-2">
+          <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -308,7 +288,7 @@ function LoginForm() {
             </Button>
 
             {/* Toggle Mock Mode */}
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <span>Mode: {isMockMode ? 'Demo' : 'Production'}</span>
               <Button
                 type="button"
@@ -327,17 +307,16 @@ function LoginForm() {
       {/* Available Users (Mock Mode) */}
       {isMockMode && (
         <Card className="bg-muted/50">
-          <CardHeader className="pb-2 pt-4">
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm">Akun Demo Tersedia</CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            <div className="grid grid-cols-2 gap-1">
-              <p><strong>SuperAdmin:</strong> admin</p>
-              <p><strong>Sales:</strong> sales1</p>
-              <p><strong>Manager:</strong> manager</p>
-              <p><strong>Driver:</strong> driver1</p>
+          <CardContent className="text-sm text-muted-foreground">
+            <div className="space-y-1">
+              <p><strong>SuperAdmin:</strong> admin / admin123</p>
+              <p><strong>Sales:</strong> sales1 / admin123</p>
+              <p><strong>Manager:</strong> manager / admin123</p>
+              <p><strong>Driver:</strong> driver1 / admin123</p>
             </div>
-            <p className="mt-2 text-xs">Password: admin123</p>
           </CardContent>
         </Card>
       )}
@@ -345,148 +324,38 @@ function LoginForm() {
   )
 }
 
-// Mobile Banner Component - Compact version for mobile
-function MobileBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
+function LoginLoading() {
+  const appName = APP_DEFAULTS.APP_NAME
+  const appInitial = appName.charAt(0).toUpperCase()
+  
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/90 to-primary">
-      {/* Banner Image as Background */}
-      {bannerUrl ? (
-        <>
-          <div 
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${bannerUrl})` }}
-          />
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/70 via-primary/50 to-primary/30" />
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
-      )}
-      
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center p-6 text-primary-foreground">
-        {/* Logo & App Name */}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shadow-lg overflow-hidden">
-            {logoUrl ? (
-              <img src={logoUrl} alt={appName} className="h-10 w-10 object-contain" />
-            ) : (
-              <span className="text-2xl font-bold">{appName.charAt(0).toUpperCase()}</span>
-            )}
-          </div>
-          <div>
-            <h1 className="text-xl font-bold drop-shadow">{appName}</h1>
-            <p className="text-xs text-white/80">Sales Management</p>
-          </div>
+    <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
+          {appInitial}
         </div>
+        <h1 className="text-3xl font-bold">{appName}</h1>
+        <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
       </div>
-    </div>
-  )
-}
-
-// Desktop Banner Component - Full split-screen with modern design
-function DesktopBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
-  return (
-    <div className="hidden lg:flex lg:w-[55%] xl:w-[60%] relative overflow-hidden">
-      {/* Banner Image as Background */}
-      {bannerUrl ? (
-        <>
-          <div 
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${bannerUrl})` }}
-          />
-          {/* Multi-layer overlay for depth */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-primary/50" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-        </>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
-      )}
-      
-      {/* Decorative elements */}
-      <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-32 right-20 w-48 h-48 bg-white/5 rounded-full blur-3xl" />
-      <div className="absolute top-1/2 left-10 w-24 h-24 bg-white/5 rounded-full blur-2xl" />
-      
-      {/* Content */}
-      <div className="relative z-10 flex flex-col justify-center items-start p-12 xl:p-16 text-white w-full">
-        {/* Logo */}
-        <div className="flex h-28 w-28 xl:h-32 xl:w-32 items-center justify-center rounded-3xl bg-white shadow-2xl mb-10 overflow-hidden">
-          {logoUrl ? (
-            <img src={logoUrl} alt={appName} className="h-24 w-24 xl:h-28 xl:w-28 object-contain" />
-          ) : (
-            <span className="text-5xl font-bold text-primary">{appName.charAt(0).toUpperCase()}</span>
-          )}
-        </div>
-        
-        {/* App Name */}
-        <h1 className="text-4xl xl:text-5xl font-bold mb-4 drop-shadow-lg tracking-tight">{appName}</h1>
-        
-        {/* Tagline */}
-        <p className="text-lg xl:text-xl text-white/90 mb-12 max-w-md">
-          Sistem Manajemen Transaksi & Penjualan Terpadu
-        </p>
-        
-        {/* Features Grid */}
-        <div className="grid grid-cols-2 gap-4 max-w-lg">
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
-            <div className="text-xl font-semibold mb-1">📊 Dashboard</div>
-            <div className="text-sm text-white/70">Real-time Analytics</div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
-            <div className="text-xl font-semibold mb-1">📝 Invoice</div>
-            <div className="text-sm text-white/70">Manajemen Transaksi</div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
-            <div className="text-xl font-semibold mb-1">🚚 Delivery</div>
-            <div className="text-sm text-white/70">Tracking Pengiriman</div>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-xl">
-            <div className="text-xl font-semibold mb-1">📈 Reports</div>
-            <div className="text-sm text-white/70">Laporan Lengkap</div>
-          </div>
-        </div>
-        
-        {/* Footer text */}
-        <div className="absolute bottom-8 left-12 xl:left-16 text-white/50 text-sm">
-          © {new Date().getFullYear()} {appName}. All rights reserved.
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Masuk</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 export default function LoginPage() {
-  const [publicConfig, setPublicConfig] = React.useState<PublicConfig | null>(null)
-  
-  // Load public config for banner
-  React.useEffect(() => {
-    api.getPublicConfig().then((response) => {
-      if (response.success) {
-        setPublicConfig(response.data as PublicConfig)
-      }
-    }).catch(() => {})
-  }, [])
-  
-  const appName = publicConfig?.APP_NAME || APP_DEFAULTS.APP_NAME
-  const logoUrl = getGoogleDriveDirectUrl(publicConfig?.LOGO_URL)
-  const bannerUrl = getGoogleDriveDirectUrl(publicConfig?.BANNER_URL)
-  
   return (
-    <div className="min-h-screen flex">
-      {/* Desktop Banner Section - Left side */}
-      <DesktopBanner bannerUrl={bannerUrl} logoUrl={logoUrl} appName={appName} />
-      
-      {/* Login Form Section - Right side (desktop) / Full width (mobile) */}
-      <div className="w-full lg:w-[45%] xl:w-[40%] flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 overflow-y-auto min-h-screen">
-        {/* Decorative background pattern for desktop */}
-        <div className="hidden lg:block absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-60 h-60 bg-primary/3 rounded-full blur-3xl" />
-        </div>
-        
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <Suspense fallback={<LoginLoading />}>
         <LoginForm />
-      </div>
+      </Suspense>
     </div>
   )
 }
