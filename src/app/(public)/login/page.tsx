@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,7 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle, Eye, EyeOff, Loader2, Info, TestTube } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useAppStore } from '@/stores/app-store'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { APP_DEFAULTS } from '@/lib/constants'
 import { api } from '@/lib/api'
@@ -31,9 +30,20 @@ type PublicConfig = {
   BANNER_URL?: string
 }
 
+// Custom hook to safely get search params without causing hydration issues
+function useSafeSearchParams() {
+  const [searchParams, setSearchParams] = React.useState<URLSearchParams | null>(null)
+  
+  React.useEffect(() => {
+    setSearchParams(new URLSearchParams(window.location.search))
+  }, [])
+  
+  return searchParams
+}
+
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = useSafeSearchParams()
   const { login, isLoading, error, setError, isAuthenticated, isInitialized } = useAuthStore()
   const { isMockMode, toggleMockMode } = useAppStore()
 
@@ -66,7 +76,7 @@ function LoginForm() {
 
   // Redirect if already authenticated (only after initialization is complete)
   React.useEffect(() => {
-    if (isInitialized && isAuthenticated) {
+    if (isInitialized && isAuthenticated && searchParams) {
       const redirect = searchParams.get('redirect') || '/'
       router.push(redirect)
     }
@@ -132,7 +142,7 @@ function LoginForm() {
     const result = await login({ username, password, rememberMe })
 
     if (result.success) {
-      const redirect = searchParams.get('redirect') || '/'
+      const redirect = searchParams?.get('redirect') || '/'
       router.push(redirect)
     }
   }
@@ -335,32 +345,6 @@ function LoginForm() {
   )
 }
 
-function LoginLoading() {
-  const appName = APP_DEFAULTS.APP_NAME
-  const appInitial = appName.charAt(0).toUpperCase()
-  
-  return (
-    <div className="w-full max-w-md space-y-8 p-6">
-      <div className="flex flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground font-bold text-2xl mb-4">
-          {appInitial}
-        </div>
-        <h1 className="text-3xl font-bold">{appName}</h1>
-        <p className="text-muted-foreground mt-2">Sistem Manajemen Transaksi & Penjualan</p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Masuk</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 // Mobile Banner Component - Compact version for mobile
 function MobileBanner({ bannerUrl, logoUrl, appName }: { bannerUrl?: string; logoUrl?: string; appName: string }) {
   return (
@@ -501,9 +485,7 @@ export default function LoginPage() {
           <div className="absolute -bottom-40 -left-40 w-60 h-60 bg-primary/3 rounded-full blur-3xl" />
         </div>
         
-        <Suspense fallback={<LoginLoading />}>
-          <LoginForm />
-        </Suspense>
+        <LoginForm />
       </div>
     </div>
   )
