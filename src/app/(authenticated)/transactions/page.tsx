@@ -1809,38 +1809,50 @@ export default function TransactionsPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setViewDialog(false)}>Tutup</Button>
-              {/* Show Create Delivery button if transaction has unfulfilled items */}
-              {detailedTransaction.items?.some(item => 
-                (item.qtyOrderUnit - (item.qtyFulfilledUnit || 0)) > 0
-              ) && (
+            {/* Action Buttons - Responsive Layout */}
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4">
+              {/* Primary Actions - Show on mobile as full width */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setViewDialog(false)}>Tutup</Button>
+                {/* Show Create Delivery button if transaction has unfulfilled items */}
+                {detailedTransaction.items?.some(item => 
+                  (item.qtyOrderUnit - (item.qtyFulfilledUnit || 0)) > 0
+                ) && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setViewDialog(false)
+                      // Navigate to deliveries page with transaction ID
+                      router.push(`/deliveries?createDelivery=${detailedTransaction.id}`)
+                    }}
+                  >
+                    <Truck className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Buat Pengiriman</span><span className="sm:hidden">Pengiriman</span>
+                  </Button>
+                )}
+              </div>
+              {/* Secondary Actions */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                 <Button
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     setViewDialog(false)
-                    // Navigate to deliveries page with transaction ID
-                    router.push(`/deliveries?createDelivery=${detailedTransaction.id}`)
+                    setPaymentDialog(true)
                   }}
                 >
-                  <Truck className="h-4 w-4 mr-1" /> Buat Pengiriman
+                  <CreditCard className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Update Pembayaran</span><span className="sm:hidden">Pembayaran</span>
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setViewDialog(false)
-                  setPaymentDialog(true)
-                }}
-              >
-                <CreditCard className="h-4 w-4 mr-1" /> Update Pembayaran
-              </Button>
-              <Button onClick={() => {
-                setViewDialog(false)
-                setOpenDialog(true)
-              }}>
-                Edit Transaksi
-              </Button>
+                <Button 
+                  className="w-full sm:w-auto"
+                  onClick={() => {
+                    setViewDialog(false)
+                    setOpenDialog(true)
+                  }}
+                >
+                  <Pencil className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Edit Transaksi</span><span className="sm:hidden">Edit</span>
+                </Button>
+              </div>
             </div>
           </div>
         )}
