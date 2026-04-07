@@ -1587,6 +1587,37 @@ export const mockCustomerPricesApi = {
   }
 }
 
+// ============ Mock File Upload ============
+export const mockFileApi = {
+  upload: async (file: { name: string; type: string; data: string }, folder?: string): Promise<ApiResponse<{ url: string; fileId: string }>> => {
+    await mockApiDelay(MOCK_DELAY * 2) // Simulate longer upload time
+    
+    // In mock mode, we simulate the upload by returning a data URL
+    // In production, this would upload to Google Drive and return a public URL
+    
+    // Simulate Google Drive URL (in mock mode, return data URL directly)
+    const mockFileId = 'mock-file-' + Date.now()
+    const mockUrl = file.data // Return the base64 data URL directly in mock mode
+    
+    // Log for demo purposes
+    console.log('[MOCK FILE UPLOAD]', {
+      fileName: file.name,
+      fileType: file.type,
+      folder: folder || 'default',
+      fileId: mockFileId
+    })
+    
+    return {
+      success: true,
+      data: {
+        url: mockUrl,
+        fileId: mockFileId
+      },
+      message: 'File berhasil diupload (Mode Demo)'
+    }
+  }
+}
+
 export default {
   auth: mockAuthApi,
   users: mockUsersApi,
@@ -1599,5 +1630,6 @@ export default {
   targets: mockTargetsApi,
   config: mockConfigApi,
   dashboard: mockDashboardApi,
-  customerPrices: mockCustomerPricesApi
+  customerPrices: mockCustomerPricesApi,
+  file: mockFileApi
 }

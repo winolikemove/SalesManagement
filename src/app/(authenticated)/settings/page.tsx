@@ -20,7 +20,10 @@ import {
   Plus,
   Upload,
   Loader2,
-  X
+  X,
+  Link,
+  CloudUpload,
+  Image as ImageIcon
 } from 'lucide-react'
 import { PageHeader, LoadingScreen } from '@/components/shared'
 import { usePageHeader, useAppStore } from '@/stores/app-store'
@@ -196,6 +199,12 @@ export default function SettingsPage() {
   const [newUnit, setNewUnit] = React.useState('')
   const [newSalesName, setNewSalesName] = React.useState('')
   const [newPaymentMethod, setNewPaymentMethod] = React.useState('')
+  
+  // File upload states
+  const [uploadingLogo, setUploadingLogo] = React.useState(false)
+  const [uploadingBanner, setUploadingBanner] = React.useState(false)
+  const logoInputRef = React.useRef<HTMLInputElement>(null)
+  const bannerInputRef = React.useRef<HTMLInputElement>(null)
 
   // Update local state when config data loads
   React.useEffect(() => {
@@ -314,6 +323,64 @@ export default function SettingsPage() {
 
   const handleSaveCompany = () => {
     saveCompanyMutation.mutate(companySettings)
+  }
+  
+  // File upload handler
+  const handleFileUpload = async (file: File, type: 'logo' | 'banner') => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('File harus berupa gambar (PNG, JPG, JPEG)')
+      return
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 5MB')
+      return
+    }
+    
+    const setUploading = type === 'logo' ? setUploadingLogo : setUploadingBanner
+    setUploading(true)
+    
+    try {
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result as string
+        
+        try {
+          const response = await api.uploadFile({
+            name: file.name,
+            type: file.type,
+            data: base64Data
+          }, 'company-images')
+          
+          if (response.success && response.data) {
+            // Update the company settings with the uploaded URL
+            updateCompanyField(type, response.data.url)
+            toast.success(`${type === 'logo' ? 'Logo' : 'Banner'} berhasil diupload`)
+          } else {
+            toast.error(response.error || 'Gagal mengupload file')
+          }
+        } catch (error) {
+          console.error('Upload error:', error)
+          toast.error('Gagal mengupload file')
+        } finally {
+          setUploading(false)
+        }
+      }
+      
+      reader.onerror = () => {
+        toast.error('Gagal membaca file')
+        setUploading(false)
+      }
+      
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error('Gagal mengupload file')
+      setUploading(false)
+    }
   }
 
   // Handlers for Invoice Settings
@@ -518,39 +585,109 @@ export default function SettingsPage() {
               <Separator />
 
               {/* Logo Upload */}
-              <div className="space-y-3">
-                <Label className="text-xs md:text-sm">Logo Perusahaan</Label>
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  <div className="h-20 w-20 md:h-24 md:w-24 rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
-                    {companySettings.logo ? (
-                      <img src={companySettings.logo} alt="Logo" className="h-full w-full object-contain" />
-                    ) : (
-                      <span className="text-2xl md:text-3xl font-bold text-muted-foreground">
-                        {companySettings.appName?.charAt(0) || 'T'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="URL Logo (https://...)"
-                        value={companySettings.logo || ''}
-                        onChange={(e) => updateCompanyField('logo', e.target.value)}
-                        className="text-sm"
-                      />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  <Label className="text-sm font-medium">Logo Perusahaan</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Preview */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-28 w-28 rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
+                      {companySettings.logo ? (
+                        <img src={companySettings.logo} alt="Logo" className="h-full w-full object-contain" />
+                      ) : (
+                        <span className="text-3xl font-bold text-muted-foreground">
+                          {companySettings.appName?.charAt(0) || 'T'}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Masukkan URL gambar logo. Ukuran optimal: 200x200 pixel, format PNG/JPG.
+                    <p className="text-xs text-muted-foreground text-center">
+                      Ukuran optimal: 200x200 pixel<br />Format: PNG, JPG (Max 5MB)
                     </p>
+                  </div>
+                  
+                  {/* Upload Options */}
+                  <div className="space-y-3">
+                    {/* Upload to Google Drive */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Upload ke Google Drive</Label>
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleFileUpload(file, 'logo')
+                          e.target.value = ''
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={uploadingLogo}
+                        onClick={() => logoInputRef.current?.click()}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CloudUpload className="h-4 w-4 mr-2" />
+                        )}
+                        {uploadingLogo ? 'Mengupload...' : 'Pilih File'}
+                      </Button>
+                    </div>
+                    
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">atau</span>
+                      </div>
+                    </div>
+                    
+                    {/* Manual URL Input */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Masukkan URL Manual</Label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="https://..."
+                            value={companySettings.logo || ''}
+                            onChange={(e) => updateCompanyField('logo', e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                        {companySettings.logo && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => updateCompanyField('logo', '')}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Banner Upload */}
-              <div className="space-y-3">
-                <Label className="text-xs md:text-sm">Banner Perusahaan</Label>
-                <div className="flex flex-col gap-3">
-                  <div className="h-32 md:h-40 w-full rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  <Label className="text-sm font-medium">Banner Perusahaan</Label>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Preview */}
+                  <div className="h-36 md:h-44 w-full rounded-xl bg-muted flex items-center justify-center shrink-0 border-2 border-dashed border-muted-foreground/25 overflow-hidden">
                     {companySettings.banner ? (
                       <img src={companySettings.banner} alt="Banner" className="h-full w-full object-cover" />
                     ) : (
@@ -560,16 +697,68 @@ export default function SettingsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 space-y-2">
-                    <Input
-                      placeholder="URL Banner (https://...)"
-                      value={companySettings.banner || ''}
-                      onChange={(e) => updateCompanyField('banner', e.target.value)}
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Masukkan URL gambar banner. Ukuran optimal: 1200x400 pixel, format PNG/JPG.
-                    </p>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    Ukuran optimal: 1200x400 pixel • Format: PNG, JPG • Max 5MB
+                  </p>
+                  
+                  {/* Upload Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Upload to Google Drive */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Upload ke Google Drive</Label>
+                      <input
+                        ref={bannerInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleFileUpload(file, 'banner')
+                          e.target.value = ''
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={uploadingBanner}
+                        onClick={() => bannerInputRef.current?.click()}
+                      >
+                        {uploadingBanner ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CloudUpload className="h-4 w-4 mr-2" />
+                        )}
+                        {uploadingBanner ? 'Mengupload...' : 'Pilih File'}
+                      </Button>
+                    </div>
+                    
+                    {/* Manual URL Input */}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Masukkan URL Manual</Label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="https://..."
+                            value={companySettings.banner || ''}
+                            onChange={(e) => updateCompanyField('banner', e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                        {companySettings.banner && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => updateCompanyField('banner', '')}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

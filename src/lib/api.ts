@@ -436,6 +436,10 @@ async function mockApiCall<T = unknown>(options: ApiRequestOptions): Promise<Api
     case 'config.update':
       return mockApi.config.update(data) as Promise<ApiResponse<T>>
     
+    // File Upload
+    case 'file.upload':
+      return mockApi.file.upload(data.file as { name: string; type: string; data: string }, data.folder as string | undefined) as Promise<ApiResponse<T>>
+    
     // Dashboard/Reports
     case 'reports.dashboard':
       return mockApi.dashboard.getStats() as Promise<ApiResponse<T>>
@@ -471,6 +475,13 @@ export const api = {
   getPublicConfig: () => apiCall({ action: 'config.getPublic', skipAuth: true }),
   getAllConfig: () => apiCall({ action: 'config.getAll' }),
   updateConfig: (data: Record<string, unknown>) => apiCall({ action: 'config.update', data }),
+
+  // File Upload (to Google Drive via backend)
+  uploadFile: (file: { name: string; type: string; data: string }, folder?: string) =>
+    apiCall<{ url: string; fileId: string }>({
+      action: 'file.upload',
+      data: { file, folder },
+    }),
 
   // Users
   getUsers: (params?: Record<string, unknown>) => apiCall({ action: 'users.list', data: params }),
