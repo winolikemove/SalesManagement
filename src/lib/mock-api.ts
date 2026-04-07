@@ -794,7 +794,11 @@ export const mockTransactionsApi = {
   list: async (params?: Record<string, unknown>): Promise<ApiResponse> => {
     await mockApiDelay(MOCK_DELAY)
     
-    let transactions = [...mockTransactions]
+    // Build transactions with items from mockTransactionItems (to get latest fulfillment status)
+    let transactions = mockTransactions.map(tx => ({
+      ...tx,
+      items: mockTransactionItems.filter(item => item.transactionId === tx.id)
+    }))
     
     if (params?.startDate && params?.endDate) {
       const start = new Date(params.startDate as string)
@@ -834,6 +838,16 @@ export const mockTransactionsApi = {
     const pageSize = Number(params?.pageSize) || 10
     
     const result = paginateArray(transactions, page, pageSize)
+    
+    console.log('[TRANSACTIONS LIST] Returning', result.data.length, 'transactions with items')
+    result.data.forEach(tx => {
+      console.log('[TRANSACTIONS LIST] Transaction', tx.invoiceNumber, 'items:', tx.items?.map(i => ({
+        product: i.productName,
+        fulfillmentStatus: i.fulfillmentStatus,
+        qtyFulfilled: i.qtyFulfilledUnit,
+        qtyOrder: i.qtyOrderUnit
+      })))
+    })
     
     return {
       success: true,
@@ -960,15 +974,40 @@ export const mockTransactionsApi = {
     
     // ========== FULFILLMENT LOGIC ==========
     // If this is a fulfillment invoice, update the original transaction items
-    if (data.isFulfillmentInvoice || items.some(item => item.sourceTransactionId)) {
+    // Check if any item has source tracking info
+    const hasSourceTracking = items.some(item => 
+      item.sourceTransactionId && String(item.sourceTransactionId).trim() !== ''
+    )
+    
+    console.log('[FULFILLMENT] Processing transaction:', {
+      isFulfillmentInvoice: data.isFulfillmentInvoice,
+      hasSourceTracking,
+      itemsWithSource: items.filter(i => i.sourceTransactionId).map(i => ({
+        productId: i.productId,
+        sourceTransactionId: i.sourceTransactionId,
+        sourceItemId: i.sourceItemId,
+        fulfilledQty: i.fulfilledQty,
+        qtyOrderUnit: i.qtyOrderUnit
+      }))
+    })
+    
+    if (data.isFulfillmentInvoice || hasSourceTracking) {
       items.forEach(item => {
-        const sourceTransactionId = item.sourceTransactionId as string
-        const sourceItemId = item.sourceItemId as string
+        const sourceTransactionId = String(item.sourceTransactionId || '').trim()
+        const sourceItemId = String(item.sourceItemId || '').trim()
         const fulfilledQty = Number(item.fulfilledQty || item.qtyOrderUnit) || 0
         
-        if (sourceTransactionId && sourceItemId) {
+        console.log('[FULFILLMENT] Processing item:', {
+          sourceTransactionId,
+          sourceItemId,
+          fulfilledQty
+        })
+        
+        if (sourceTransactionId && sourceItemId && fulfilledQty > 0) {
           // Find and update the original transaction item
           const sourceTransactionIndex = mockTransactions.findIndex(t => t.id === sourceTransactionId)
+          
+          console.log('[FULFILLMENT] Source transaction index:', sourceTransactionIndex)
           
           if (sourceTransactionIndex !== -1) {
             const sourceTransaction = mockTransactions[sourceTransactionIndex]
@@ -976,6 +1015,8 @@ export const mockTransactionsApi = {
             // Update the source item in the transaction
             if (sourceTransaction.items) {
               const sourceItemIndex = sourceTransaction.items.findIndex(i => i.id === sourceItemId)
+              
+              console.log('[FULFILLMENT] Source item index:', sourceItemIndex, 'items count:', sourceTransaction.items.length)
               
               if (sourceItemIndex !== -1) {
                 const sourceItem = sourceTransaction.items[sourceItemIndex]
@@ -995,8 +1036,17 @@ export const mockTransactionsApi = {
                   newFulfillmentStatus = 'UNFULFILLED'
                 }
                 
+                console.log('[FULFILLMENT] Updating source item:', {
+                  sourceItemId,
+                  oldFulfillmentStatus: sourceItem.fulfillmentStatus,
+                  newFulfillmentStatus,
+                  oldQtyFulfilled: sourceItem.qtyFulfilledUnit,
+                  newQtyFulfilledUnit,
+                  qtyRemaining
+                })
+                
                 // Update the source item
-                sourceTransaction.items[sourceItemIndex] = {
+                const updatedItem = {
                   ...sourceItem,
                   qtyFulfilledUnit: newQtyFulfilledUnit,
                   qtyFulfilledKg: newQtyFulfilledKg,
@@ -1005,19 +1055,34 @@ export const mockTransactionsApi = {
                   fulfillmentStatus: newFulfillmentStatus
                 }
                 
+                sourceTransaction.items[sourceItemIndex] = updatedItem
+                
                 // Also update in mockTransactionItems array
                 const mockItemIndex = mockTransactionItems.findIndex(i => i.id === sourceItemId)
                 if (mockItemIndex !== -1) {
-                  mockTransactionItems[mockItemIndex] = sourceTransaction.items[sourceItemIndex]
+                  mockTransactionItems[mockItemIndex] = updatedItem
                 }
+                
+                // Update the transaction in the array (for reactivity)
+                mockTransactions[sourceTransactionIndex] = {
+                  ...sourceTransaction,
+                  items: [...sourceTransaction.items]
+                }
+                
+                console.log('[FULFILLMENT] Update complete. Transaction updated:', mockTransactions[sourceTransactionIndex].id)
+              } else {
+                console.log('[FULFILLMENT] Source item not found. Available item IDs:', sourceTransaction.items.map(i => i.id))
               }
             }
-            
-            // Update the transaction in the array
-            mockTransactions[sourceTransactionIndex] = sourceTransaction
+          } else {
+            console.log('[FULFILLMENT] Source transaction not found. Available IDs:', mockTransactions.map(t => t.id))
           }
+        } else {
+          console.log('[FULFILLMENT] Skipping item - missing source info or zero qty')
         }
       })
+    } else {
+      console.log('[FULFILLMENT] Not a fulfillment invoice, skipping update')
     }
     // ========== END FULFILLMENT LOGIC ==========
     
